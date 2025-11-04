@@ -1,0 +1,254 @@
+"""Passive discovery stage - reconnaissance without active probing"""
+import asyncio
+import logging
+from typing import List, Dict, Optional, Set
+from datetime import datetime
+from pydantic import BaseModel, Field
+
+from ..tools.runner import ToolRunner
+from ..tools.parsers import SubfinderParser, DNSXParser, parse_subdomain_list
+from ..models import Subdomain, DNSRecords, DomainInfo, WHOISData
+from ..config import DiscoveryConfig
+
+logger = logging.getLogger(__name__)
+
+
+class PassiveResults(BaseModel):
+    """Results from passive discovery stage"""
+    subdomains: List[str] = Field(default_factory=list, description="Discovered subdomains")
+    dns_records: Dict[str, DNSRecords] = Field(
+        default_factory=dict,
+        description="DNS records mapped by hostname"
+    )
+    whois_data: Optional[WHOISData] = None
+    total_subdomains: int = 0
+    unique_ips: Set[str] = Field(default_factory=set)
+
+    class Config:
+        arbitrary_types_allowed = True  # Allow Set type
+
+
+class PassiveDiscovery:
+    """Passive reconnaissance stage"""
+
+    def __init__(self, config: DiscoveryConfig):
+        """
+        Args:
+            config: Discovery configuration
+        """
+        self.config = config
+        self.runner = ToolRunner(timeout=config.subfinder_timeout)
+
+    async def run(self, target_domain: str) -> PassiveResults:
+        """Execute passive discovery stage
+
+        Args:
+            target_domain: Root domain to discover
+
+        Returns:
+            PassiveResults with discovered data
+        """
+        logger.info(f"Starting passive discovery for {target_domain}")
+        results = PassiveResults()
+
+        # Run discovery tasks in parallel
+        tasks = [
+            self._enumerate_subdomains(target_domain),
+            self._collect_dns_records(target_domain),
+            self._fetch_whois(target_domain)
+        ]
+
+        # Execute all tasks concurrently
+        subdomain_results, dns_results, whois_result = await asyncio.gather(
+            *tasks,
+            return_exceptions=True
+        )
+
+        # Process subdomain enumeration results
+        if isinstance(subdomain_results, Exception):
+            logger.error(f"Subdomain enumeration failed: {subdomain_results}")
+        else:
+            results.subdomains = subdomain_results
+            results.total_subdomains = len(subdomain_results)
+            logger.info(f"Discovered {results.total_subdomains} subdomains")
+
+        # Process DNS results
+        if isinstance(dns_results, Exception):
+            logger.error(f"DNS collection failed: {dns_results}")
+        else:
+            results.dns_records = dns_results
+
+            # Extract unique IPs
+            for dns_data in dns_results.values():
+                results.unique_ips.update(dns_data.a)
+                results.unique_ips.update(dns_data.aaaa)
+
+        # Process WHOIS results
+        if isinstance(whois_result, Exception):
+            logger.warning(f"WHOIS lookup failed: {whois_result}")
+        else:
+            results.whois_data = whois_result
+
+        logger.info(f"Passive discovery complete: {results.total_subdomains} subdomains, "
+                   f"{len(results.unique_ips)} unique IPs")
+
+        return results
+
+    async def _enumerate_subdomains(self, domain: str) -> List[str]:
+        """Enumerate subdomains using multiple sources
+
+        Args:
+            domain: Target domain
+
+        Returns:
+            List of discovered subdomains
+        """
+        logger.debug(f"Enumerating subdomains for {domain}")
+        all_subdomains = set()
+
+        # Run subfinder
+        try:
+            output = await self.runner.run_subfinder(
+                domain,
+                timeout=self.config.subfinder_timeout,
+                silent=True
+            )
+            subdomains = SubfinderParser.parse(output)
+            all_subdomains.update(subdomains)
+            logger.debug(f"Subfinder found {len(subdomains)} subdomains")
+
+        except Exception as e:
+            logger.error(f"Subfinder execution failed: {e}")
+
+        # Apply limit if configured
+        if self.config.max_subdomains:
+            all_subdomains = set(list(all_subdomains)[:self.config.max_subdomains])
+            logger.debug(f"Limited to {self.config.max_subdomains} subdomains")
+
+        return sorted(list(all_subdomains))
+
+    async def _collect_dns_records(self, domain: str) -> Dict[str, DNSRecords]:
+        """Collect DNS records for domain and subdomains
+
+        Args:
+            domain: Target domain
+
+        Returns:
+            Dict mapping hostnames to DNS records
+        """
+        logger.debug(f"Collecting DNS records for {domain}")
+        dns_data = {}
+
+        try:
+            # Query A and AAAA records for root domain
+            output = await self.runner.run_dnsx(
+                domains=[domain],
+                record_types=['A', 'AAAA', 'MX', 'TXT', 'NS'],
+                timeout=self.config.dnsx_timeout
+            )
+
+            dns_data = DNSXParser.parse(output)
+            logger.debug(f"Collected DNS records for {len(dns_data)} hosts")
+
+        except Exception as e:
+            logger.error(f"DNS collection failed: {e}")
+
+        return dns_data
+
+    async def _fetch_whois(self, domain: str) -> Optional[WHOISData]:
+        """Fetch WHOIS data for domain
+
+        Args:
+            domain: Target domain
+
+        Returns:
+            WHOISData if successful, None otherwise
+        """
+        logger.debug(f"Fetching WHOIS data for {domain}")
+
+        try:
+            import whois
+
+            # Perform WHOIS lookup (blocking call, but quick)
+            w = await asyncio.to_thread(whois.whois, domain)
+
+            # Parse WHOIS response
+            whois_data = WHOISData(
+                registrar=w.registrar if hasattr(w, 'registrar') else None,
+                creation_date=self._parse_whois_date(w.creation_date) if hasattr(w, 'creation_date') else None,
+                expiration_date=self._parse_whois_date(w.expiration_date) if hasattr(w, 'expiration_date') else None,
+                name_servers=w.name_servers if hasattr(w, 'name_servers') and w.name_servers else [],
+                status=w.status if hasattr(w, 'status') and w.status else [],
+                emails=w.emails if hasattr(w, 'emails') and w.emails else []
+            )
+
+            logger.debug(f"WHOIS data retrieved for {domain}")
+            return whois_data
+
+        except ImportError:
+            logger.warning("python-whois not installed, skipping WHOIS lookup")
+            return None
+        except Exception as e:
+            logger.warning(f"WHOIS lookup failed: {e}")
+            return None
+
+    def _parse_whois_date(self, date_value) -> Optional[datetime]:
+        """Parse WHOIS date field (can be datetime, list, or str)
+
+        Args:
+            date_value: WHOIS date value
+
+        Returns:
+            Parsed datetime or None
+        """
+        if isinstance(date_value, datetime):
+            return date_value
+        elif isinstance(date_value, list) and len(date_value) > 0:
+            if isinstance(date_value[0], datetime):
+                return date_value[0]
+        return None
+
+    def to_domain_info(self, target: str, results: PassiveResults) -> DomainInfo:
+        """Convert PassiveResults to DomainInfo model
+
+        Args:
+            target: Root domain
+            results: Passive discovery results
+
+        Returns:
+            DomainInfo object
+        """
+        # Convert subdomains to Subdomain objects
+        subdomain_objects = []
+
+        for subdomain_name in results.subdomains:
+            # Get DNS records if available
+            dns_records = results.dns_records.get(subdomain_name)
+
+            # Extract IPs from DNS
+            ips = []
+            if dns_records:
+                ips.extend(dns_records.a)
+                ips.extend(dns_records.aaaa)
+
+            subdomain = Subdomain(
+                name=subdomain_name,
+                ips=ips,
+                status="unknown",  # Will be determined in active discovery
+                dns_records=dns_records,
+                discovered_via="passive",
+                discovered_at=datetime.utcnow()
+            )
+            subdomain_objects.append(subdomain)
+
+        # Build DomainInfo
+        domain_info = DomainInfo(
+            root_domain=target,
+            subdomains=subdomain_objects,
+            dns_records=results.dns_records.get(target),
+            whois=results.whois_data,
+            total_subdomains=len(subdomain_objects),
+            live_subdomains=0  # Will be updated in active discovery
+        )
+
+        return domain_info

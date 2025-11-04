@@ -1,0 +1,16 @@
+# Demo targets for testing Surface Discovery
+# Use these for testing the PoC (ensure you have permission!)
+
+# Simple target (minimal attack surface)
+example.com
+
+# Intentionally vulnerable test applications
+testphp.vulnweb.com
+testhtml5.vulnweb.com
+testasp.vulnweb.com
+
+# OWASP Juice Shop (if running locally)
+# localhost:3000
+
+# Your own test domains
+# mytestdomain.com
