@@ -4,6 +4,16 @@ from pydantic import BaseModel, Field, HttpUrl
 from datetime import datetime
 
 
+class PortScanResult(BaseModel):
+    """Port scan result for a single port"""
+    port: int = Field(..., description="Port number (1-65535)")
+    protocol: str = Field(default="tcp", description="Protocol (tcp/udp)")
+    state: str = Field(..., description="Port state (open/closed/filtered)")
+    service: Optional[str] = Field(default=None, description="Service name (http, ssh, etc.)")
+    version: Optional[str] = Field(default=None, description="Service version if detected")
+    discovered_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class DNSRecords(BaseModel):
     """DNS records for a domain"""
     a: List[str] = Field(default_factory=list, description="A records (IPv4)")
@@ -24,6 +34,11 @@ class Subdomain(BaseModel):
     cdn: Optional[str] = Field(default=None, description="CDN provider if detected")
     discovered_via: str = Field(..., description="Discovery source")
     discovered_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Port scanning results
+    open_ports: List[PortScanResult] = Field(default_factory=list, description="Open ports discovered")
+    total_ports_scanned: int = Field(default=0, description="Total ports scanned")
+    open_ports_count: int = Field(default=0, description="Count of open ports")
 
 
 class WHOISData(BaseModel):

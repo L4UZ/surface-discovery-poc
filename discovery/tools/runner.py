@@ -390,3 +390,54 @@ class ToolRunner:
         )
 
         return stdout.decode('utf-8', errors='replace')
+
+    async def run_naabu(
+        self,
+        hosts: List[str],
+        ports: Optional[str] = None,
+        top_ports: Optional[int] = None,
+        rate: int = 1000,
+        timeout: Optional[int] = None
+    ) -> str:
+        """Run naabu for port scanning
+
+        Args:
+            hosts: List of hosts/IPs to scan
+            ports: Port specification (e.g., "80,443,8080" or "1-1000" or "-" for all)
+            top_ports: Scan top N ports (100, 1000, or None for custom ports)
+            rate: Packets per second (default: 1000)
+            timeout: Optional timeout override
+
+        Returns:
+            Raw stdout output (JSONL format)
+        """
+        command = ['naabu', '-silent', '-json']
+
+        # Port configuration (mutually exclusive)
+        if top_ports:
+            command.extend(['-top-ports', str(top_ports)])
+        elif ports:
+            command.extend(['-p', ports])
+        else:
+            # Default to top 100 ports if nothing specified
+            command.extend(['-top-ports', '100'])
+
+        # Rate limiting
+        command.extend(['-rate', str(rate)])
+
+        # Write hosts to pipe
+        hosts_input = '\n'.join(hosts)
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(input=hosts_input.encode()),
+            timeout=timeout or self.timeout
+        )
+
+        return stdout.decode('utf-8', errors='replace')

@@ -40,6 +40,8 @@ htmlcov/
 
 # Discovery outputs
 discovery_*.json
+input/
+output/
 results/
 *.log
 

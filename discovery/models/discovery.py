@@ -68,6 +68,9 @@ class Statistics(BaseModel):
     live_services: int = 0
     technologies_detected: int = 0
     endpoints_discovered: int = 0
+    total_ports_scanned: int = Field(default=0, description="Total ports scanned across all hosts")
+    open_ports_found: int = Field(default=0, description="Total open ports discovered")
+    hosts_with_open_ports: int = Field(default=0, description="Number of hosts with open ports")
     findings_by_severity: Dict[str, int] = Field(
         default_factory=lambda: {
             "critical": 0,
@@ -117,6 +120,21 @@ class DiscoveryResult(BaseModel):
         """Recalculate statistics from current data"""
         if self.domains:
             self.statistics.total_subdomains = len(self.domains.subdomains)
+
+            # Calculate port statistics
+            total_ports_scanned = 0
+            total_open_ports = 0
+            hosts_with_open_ports = 0
+
+            for subdomain in self.domains.subdomains:
+                total_ports_scanned += subdomain.total_ports_scanned
+                total_open_ports += subdomain.open_ports_count
+                if subdomain.open_ports_count > 0:
+                    hosts_with_open_ports += 1
+
+            self.statistics.total_ports_scanned = total_ports_scanned
+            self.statistics.open_ports_found = total_open_ports
+            self.statistics.hosts_with_open_ports = hosts_with_open_ports
 
         self.statistics.live_services = len(self.services)
         self.statistics.technologies_detected = len(self.technologies)

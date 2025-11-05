@@ -19,6 +19,9 @@ class DiscoveryConfig(BaseModel):
     katana_timeout: int = 120
     naabu_timeout: int = 120
 
+    # Port scanning settings
+    port_scan_rate: int = Field(default=1000, description="Packets per second for port scanning")
+
     # Discovery limits
     max_subdomains: Optional[int] = Field(default=None, description="Max subdomains to process")
     max_crawl_services: int = Field(default=10, description="Max services to crawl deeply")
@@ -45,6 +48,8 @@ DEPTH_CONFIGS = {
         timeout=300,
         parallel=5,
         subfinder_timeout=60,
+        naabu_timeout=90,
+        port_scan_rate=1000,
         max_subdomains=20,
         max_crawl_services=3,
         crawl_depth=2
@@ -53,6 +58,8 @@ DEPTH_CONFIGS = {
         depth="normal",
         timeout=600,
         parallel=10,
+        naabu_timeout=180,
+        port_scan_rate=1500,
         max_crawl_services=10,
         crawl_depth=3
     ),
@@ -61,6 +68,8 @@ DEPTH_CONFIGS = {
         timeout=900,
         parallel=15,
         subfinder_timeout=300,
+        naabu_timeout=300,
+        port_scan_rate=2000,
         max_crawl_services=20,
         crawl_depth=5
     )

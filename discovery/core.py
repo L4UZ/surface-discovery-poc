@@ -8,6 +8,7 @@ from typing import Optional
 from .config import DiscoveryConfig, get_config
 from .models import DiscoveryResult, DiscoveryMetadata, DiscoveryStage
 from .stages.passive import PassiveDiscovery
+from .stages.port_discovery import PortDiscovery
 from .stages.active import ActiveDiscovery
 from .stages.deep import DeepDiscovery
 from .stages.enrichment import EnrichmentStage
@@ -73,6 +74,9 @@ class DiscoveryEngine:
         try:
             # Stage 1: Passive Discovery
             await self._run_passive_discovery(target_domain)
+
+            # Stage 1.5: Port Discovery
+            await self._run_port_discovery()
 
             # Stage 2: Active Discovery
             await self._run_active_discovery()
@@ -148,6 +152,52 @@ class DiscoveryEngine:
                 f"Passive discovery failed: {e}"
             )
             raise
+
+    async def _run_port_discovery(self):
+        """Execute port discovery stage
+
+        Scans discovered subdomains for open ports
+        """
+        logger.info("Stage 1.5: Port Discovery")
+        self.result.add_timeline_event(
+            DiscoveryStage.PASSIVE_DISCOVERY,  # Reuse stage for timeline
+            "Starting port scanning"
+        )
+
+        try:
+            # Get subdomains from passive discovery
+            if not self.result.domains or not self.result.domains.subdomains:
+                logger.warning("No subdomains found in passive discovery, skipping port discovery")
+                return
+
+            # Create port discovery stage
+            port_discovery = PortDiscovery(self.config)
+
+            # Run port scanning on subdomains
+            port_results = await port_discovery.run(self.result.domains.subdomains)
+
+            self.result.add_timeline_event(
+                DiscoveryStage.PASSIVE_DISCOVERY,
+                "Port discovery completed",
+                {
+                    "hosts_scanned": port_results.total_hosts_scanned,
+                    "open_ports_found": port_results.total_open_ports,
+                    "ports_by_host_count": len(port_results.ports_by_host)
+                }
+            )
+
+            logger.info(
+                f"Port discovery complete: {port_results.total_open_ports} open ports "
+                f"found across {len(port_results.ports_by_host)} hosts"
+            )
+
+        except Exception as e:
+            logger.error(f"Port discovery failed: {e}")
+            self.result.add_timeline_event(
+                DiscoveryStage.PASSIVE_DISCOVERY,
+                f"Port discovery failed: {e}"
+            )
+            # Don't raise - port discovery failure shouldn't stop the pipeline
 
     async def _run_active_discovery(self):
         """Execute active discovery stage
