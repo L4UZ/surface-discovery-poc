@@ -8,6 +8,7 @@ from typing import Optional
 from .config import DiscoveryConfig, get_config
 from .models import DiscoveryResult, DiscoveryMetadata, DiscoveryStage
 from .stages.passive import PassiveDiscovery
+from .stages.active import ActiveDiscovery
 from .utils.helpers import extract_domain
 from .utils.logger import setup_logger
 
@@ -130,21 +131,74 @@ class DiscoveryEngine:
             raise
 
     async def _run_active_discovery(self):
-        """Execute active discovery stage (placeholder)
+        """Execute active discovery stage
 
-        This is a placeholder for the active discovery implementation.
-        In the full implementation, this would probe discovered domains.
+        Probes discovered subdomains for live HTTP/HTTPS services
         """
-        logger.info("Stage 2: Active Discovery (placeholder)")
+        logger.info("Stage 2: Active Discovery")
         self.result.metadata.status = DiscoveryStage.ACTIVE_DISCOVERY
         self.result.add_timeline_event(
             DiscoveryStage.ACTIVE_DISCOVERY,
-            "Active discovery stage (not yet implemented)"
+            "Starting active probing"
         )
 
-        # Placeholder: In full implementation, would run httpx, nuclei, etc.
-        # For now, just log that this stage is pending
-        logger.warning("Active discovery not yet implemented in core components")
+        try:
+            # Get subdomains from passive discovery
+            if not self.result.domains or not self.result.domains.subdomains:
+                logger.warning("No subdomains found in passive discovery, skipping active stage")
+                return
+
+            # Extract subdomain names
+            subdomain_names = [sub.name for sub in self.result.domains.subdomains]
+
+            # Create active discovery stage
+            active = ActiveDiscovery(self.config)
+
+            # Run HTTP probing
+            active_results = await active.run(subdomain_names)
+
+            # Store services in result
+            self.result.services = active_results.services
+
+            # Update subdomain status based on probing results
+            service_urls = {service.url for service in active_results.services}
+            for subdomain in self.result.domains.subdomains:
+                # Check if subdomain has any live service
+                subdomain_live = any(
+                    subdomain.name in url for url in service_urls
+                )
+                subdomain.status = "live" if subdomain_live else "dead"
+
+            # Update live subdomain count
+            self.result.domains.live_subdomains = sum(
+                1 for sub in self.result.domains.subdomains if sub.status == "live"
+            )
+
+            # Extract all technologies from services
+            all_technologies = []
+            for service in active_results.services:
+                all_technologies.extend(service.technologies)
+            self.result.technologies = all_technologies
+
+            self.result.add_timeline_event(
+                DiscoveryStage.ACTIVE_DISCOVERY,
+                "Active discovery completed",
+                {
+                    "live_services": active_results.live_count,
+                    "dead_hosts": active_results.dead_count,
+                    "technologies": len(all_technologies)
+                }
+            )
+
+            logger.info(f"Active discovery complete: {active_results.live_count} live services")
+
+        except Exception as e:
+            logger.error(f"Active discovery failed: {e}")
+            self.result.add_timeline_event(
+                DiscoveryStage.ACTIVE_DISCOVERY,
+                f"Active discovery failed: {e}"
+            )
+            raise
 
     async def _finalize(self):
         """Finalize discovery and update metadata"""
