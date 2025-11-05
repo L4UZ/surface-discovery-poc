@@ -31,6 +31,9 @@ class DiscoveryConfig(BaseModel):
     # Output settings
     verbose: bool = Field(default=False, description="Enable verbose logging")
 
+    # Stage toggles
+    skip_vuln_scan: bool = Field(default=False, description="Skip vulnerability scanning stage")
+
     class Config:
         frozen = True  # Immutable after creation
 

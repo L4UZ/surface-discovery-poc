@@ -251,6 +251,7 @@ class ToolRunner:
         self,
         targets: List[str],
         templates: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
         severity: Optional[List[str]] = None,
         timeout: Optional[int] = None
     ) -> str:
@@ -259,17 +260,21 @@ class ToolRunner:
         Args:
             targets: List of URLs to scan
             templates: Specific template paths/tags
+            tags: Template tags to run (e.g., ['cve', 'exposure'])
             severity: Severity levels to include (info, low, medium, high, critical)
             timeout: Optional timeout override
 
         Returns:
-            Raw stdout output
+            Raw stdout output (JSONL format)
         """
-        command = ['nuclei', '-silent', '-json']
+        command = ['nuclei', '-silent', '-jsonl']
 
         if templates:
             for template in templates:
                 command.extend(['-t', template])
+
+        if tags:
+            command.extend(['-tags', ','.join(tags)])
 
         if severity:
             command.extend(['-severity', ','.join(severity)])
@@ -317,6 +322,57 @@ class ToolRunner:
         # Enable JavaScript crawling
         if js_crawl:
             command.append('-jc')
+
+        # Write targets to pipe
+        targets_input = '\n'.join(targets)
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(input=targets_input.encode()),
+            timeout=timeout or self.timeout
+        )
+
+        return stdout.decode('utf-8', errors='replace')
+
+    async def run_katana_authenticated(
+        self,
+        targets: List[str],
+        headers: Dict[str, str],
+        depth: int = 3,
+        js_crawl: bool = True,
+        timeout: Optional[int] = None
+    ) -> str:
+        """Run katana with authentication headers for authenticated crawling
+
+        Args:
+            targets: List of URLs to crawl
+            headers: Authentication headers (Authorization, Cookie, custom headers)
+            depth: Crawl depth (default: 3 for authenticated surfaces)
+            js_crawl: Enable JavaScript crawling (default: True)
+            timeout: Optional timeout override
+
+        Returns:
+            Raw stdout output (JSONL format)
+        """
+        command = ['katana', '-silent', '-jsonl']
+
+        # Set crawl depth
+        command.extend(['-depth', str(depth)])
+
+        # Enable JavaScript crawling
+        if js_crawl:
+            command.append('-jc')
+
+        # Add headers
+        if headers:
+            for key, value in headers.items():
+                command.extend(['-headers', f"{key}: {value}"])
 
         # Write targets to pipe
         targets_input = '\n'.join(targets)

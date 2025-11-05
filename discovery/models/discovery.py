@@ -101,6 +101,10 @@ class DiscoveryResult(BaseModel):
         default_factory=list,
         description="Pentest focus recommendations"
     )
+    infrastructure: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Infrastructure intelligence (cloud providers, CDN, ASN)"
+    )
     statistics: Statistics = Field(default_factory=Statistics, description="Summary statistics")
 
     def add_timeline_event(self, stage: DiscoveryStage, event: str, details: Optional[Dict[str, Any]] = None):

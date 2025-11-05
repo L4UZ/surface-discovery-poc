@@ -10,6 +10,8 @@ from .models import DiscoveryResult, DiscoveryMetadata, DiscoveryStage
 from .stages.passive import PassiveDiscovery
 from .stages.active import ActiveDiscovery
 from .stages.deep import DeepDiscovery
+from .stages.enrichment import EnrichmentStage
+from .stages.vulnerability import VulnerabilityScanner
 from .utils.helpers import extract_domain
 from .utils.logger import setup_logger
 
@@ -77,6 +79,19 @@ class DiscoveryEngine:
 
             # Stage 3: Deep Discovery
             await self._run_deep_discovery()
+
+            # Stage 4: Enrichment
+            await self._run_enrichment()
+
+            # Stage 5: Vulnerability Scanning
+            if not self.config.skip_vuln_scan:
+                await self._run_vulnerability_scan()
+            else:
+                logger.info("Stage 5: Vulnerability Scanning (skipped by --skip-vuln-scan flag)")
+                self.result.add_timeline_event(
+                    DiscoveryStage.COMPLETED,
+                    "Vulnerability scanning skipped by user configuration"
+                )
 
             # Finalize
             await self._finalize()
@@ -250,6 +265,112 @@ class DiscoveryEngine:
                 f"Deep discovery failed: {e}"
             )
             raise
+
+    async def _run_enrichment(self):
+        """Execute enrichment stage
+
+        Infrastructure and technology intelligence gathering
+        """
+        logger.info("Stage 4: Enrichment")
+        self.result.metadata.status = DiscoveryStage.ENRICHMENT
+        self.result.add_timeline_event(
+            DiscoveryStage.ENRICHMENT,
+            "Starting infrastructure enrichment"
+        )
+
+        try:
+            # Create enrichment stage
+            enrichment = EnrichmentStage()
+
+            # Run enrichment on services and subdomains
+            enrichment_results = await enrichment.run(
+                self.result.services,
+                self.result.domains.subdomains if self.result.domains else []
+            )
+
+            # Store infrastructure data
+            self.result.infrastructure = {
+                'cloud_providers': {k: list(v) for k, v in enrichment_results.cloud_providers.items()},
+                'cdn_providers': {k: list(v) for k, v in enrichment_results.cdn_providers.items()},
+                'asn_mappings': enrichment_results.asn_mappings,
+                'summary': enrichment_results.infrastructure_summary
+            }
+
+            self.result.add_timeline_event(
+                DiscoveryStage.ENRICHMENT,
+                "Enrichment completed",
+                {
+                    "cloud_providers": len(enrichment_results.cloud_providers),
+                    "cdn_providers": len(enrichment_results.cdn_providers)
+                }
+            )
+
+            logger.info(f"Enrichment complete: {len(enrichment_results.cloud_providers)} cloud providers, "
+                       f"{len(enrichment_results.cdn_providers)} CDN providers")
+
+        except Exception as e:
+            logger.error(f"Enrichment failed: {e}")
+            self.result.add_timeline_event(
+                DiscoveryStage.ENRICHMENT,
+                f"Enrichment failed: {e}"
+            )
+            # Don't raise - enrichment failure shouldn't stop the pipeline
+
+    async def _run_vulnerability_scan(self):
+        """Execute vulnerability scanning stage
+
+        Scans discovered services and endpoints for security vulnerabilities
+        """
+        logger.info("Stage 5: Vulnerability Scanning")
+        self.result.metadata.status = DiscoveryStage.COMPLETED  # Using COMPLETED for final stage
+        self.result.add_timeline_event(
+            DiscoveryStage.COMPLETED,
+            "Starting vulnerability scanning"
+        )
+
+        try:
+            # Get services and endpoints from previous stages
+            if not self.result.services:
+                logger.warning("No live services found, skipping vulnerability scanning")
+                return
+
+            # Create vulnerability scanner
+            scanner = VulnerabilityScanner(self.config)
+
+            # Run vulnerability scanning
+            vuln_results = await scanner.run(
+                self.result.services,
+                self.result.endpoints
+            )
+
+            # Store findings in result
+            self.result.findings = vuln_results.findings
+
+            self.result.add_timeline_event(
+                DiscoveryStage.COMPLETED,
+                "Vulnerability scanning completed",
+                {
+                    "total_scans": vuln_results.total_scans,
+                    "vulnerabilities_found": vuln_results.vulnerabilities_found,
+                    "critical": vuln_results.critical_count,
+                    "high": vuln_results.high_count,
+                    "medium": vuln_results.medium_count
+                }
+            )
+
+            logger.info(
+                f"Vulnerability scanning complete: {vuln_results.vulnerabilities_found} findings "
+                f"(critical: {vuln_results.critical_count}, high: {vuln_results.high_count}, "
+                f"medium: {vuln_results.medium_count})"
+            )
+
+        except Exception as e:
+            logger.error(f"Vulnerability scanning failed: {e}")
+            self.result.add_timeline_event(
+                DiscoveryStage.COMPLETED,
+                f"Vulnerability scanning failed: {e}"
+            )
+            # Don't raise - vulnerability scan failure shouldn't stop the pipeline
 
     async def _finalize(self):
         """Finalize discovery and update metadata"""
