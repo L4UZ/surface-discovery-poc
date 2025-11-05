@@ -23,7 +23,7 @@ console = Console()
 @click.command()
 @click.option(
     '--url',
-    required=True,
+    required=False,
     help='Target URL or domain to discover (e.g., https://example.com or example.com)'
 )
 @click.option(
@@ -81,6 +81,11 @@ def main(
     if check_tools:
         asyncio.run(check_dependencies())
         return
+
+    # Validate URL is provided for normal operation
+    if not url:
+        console.print("[bold red]Error:[/bold red] --url is required (unless using --check-tools)")
+        sys.exit(1)
 
     # Display banner
     display_banner()

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  surface-discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: surface-discovery:latest
+    container_name: surface-discovery
+
+    # Volume mount for output persistence
+    volumes:
+      - ./results:/output
+
+    # Environment variables (can be overridden)
+    environment:
+      - PYTHONUNBUFFERED=1
+
+    # Network mode (host for better network scanning performance)
+    # Change to 'bridge' if you prefer isolation
+    network_mode: host
+
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # Capabilities for network scanning (naabu)
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+
+    # Default command (override with docker-compose run)
+    command: ["--help"]
+
+# Optional: Add a service for running multiple scans in parallel
+  # surface-discovery-worker:
+  #   extends: surface-discovery
+  #   container_name: surface-discovery-worker-${WORKER_ID:-1}
+  #   volumes:
+  #     - ./results/worker-${WORKER_ID:-1}:/output

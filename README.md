@@ -12,7 +12,27 @@ Surface Discovery performs comprehensive reconnaissance on web targets, gatherin
 
 ## Installation
 
-### Prerequisites
+### Option 1: Docker (Recommended)
+
+**Fastest and easiest** - all dependencies bundled in a single container:
+
+```bash
+# Build the image
+docker build -t surface-discovery .
+
+# Run discovery
+docker run --rm -v $(pwd)/results:/output surface-discovery example.com
+
+# With options
+docker run --rm -v $(pwd)/results:/output \
+  surface-discovery example.com --depth deep --verbose
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker documentation.
+
+### Option 2: Local Installation
+
+#### Prerequisites
 
 Install required external tools:
 
@@ -26,7 +46,7 @@ go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
 go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
 ```
 
-### Python Environment
+#### Python Environment
 
 ```bash
 python -m venv venv
@@ -35,6 +55,30 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+
+### Docker Usage
+
+Basic discovery:
+```bash
+docker run --rm -v $(pwd)/results:/output surface-discovery example.com
+```
+
+Advanced options:
+```bash
+docker run --rm -v $(pwd)/results:/output \
+  surface-discovery example.com \
+  --depth deep \
+  --timeout 900 \
+  --parallel 15 \
+  --verbose
+```
+
+Using docker-compose:
+```bash
+docker-compose run --rm surface-discovery example.com --depth deep
+```
+
+### Local Usage
 
 Basic discovery:
 ```bash
@@ -47,7 +91,7 @@ python cli.py \
   --url https://example.com \
   --output results.json \
   --depth deep \
-  --timeout 15 \
+  --timeout 900 \
   --parallel 10 \
   --verbose
 ```
