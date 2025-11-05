@@ -290,3 +290,47 @@ class ToolRunner:
         )
 
         return stdout.decode('utf-8', errors='replace')
+
+    async def run_katana(
+        self,
+        targets: List[str],
+        depth: int = 2,
+        js_crawl: bool = True,
+        timeout: Optional[int] = None
+    ) -> str:
+        """Run katana for web crawling and endpoint discovery
+
+        Args:
+            targets: List of URLs to crawl
+            depth: Crawl depth (default: 2)
+            js_crawl: Enable JavaScript crawling (default: True)
+            timeout: Optional timeout override
+
+        Returns:
+            Raw stdout output (JSONL format)
+        """
+        command = ['katana', '-silent', '-jsonl']
+
+        # Set crawl depth
+        command.extend(['-depth', str(depth)])
+
+        # Enable JavaScript crawling
+        if js_crawl:
+            command.append('-jc')
+
+        # Write targets to pipe
+        targets_input = '\n'.join(targets)
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(input=targets_input.encode()),
+            timeout=timeout or self.timeout
+        )
+
+        return stdout.decode('utf-8', errors='replace')

@@ -9,6 +9,7 @@ from .config import DiscoveryConfig, get_config
 from .models import DiscoveryResult, DiscoveryMetadata, DiscoveryStage
 from .stages.passive import PassiveDiscovery
 from .stages.active import ActiveDiscovery
+from .stages.deep import DeepDiscovery
 from .utils.helpers import extract_domain
 from .utils.logger import setup_logger
 
@@ -71,8 +72,11 @@ class DiscoveryEngine:
             # Stage 1: Passive Discovery
             await self._run_passive_discovery(target_domain)
 
-            # Stage 2: Active Discovery (placeholder for core components)
+            # Stage 2: Active Discovery
             await self._run_active_discovery()
+
+            # Stage 3: Deep Discovery
+            await self._run_deep_discovery()
 
             # Finalize
             await self._finalize()
@@ -197,6 +201,53 @@ class DiscoveryEngine:
             self.result.add_timeline_event(
                 DiscoveryStage.ACTIVE_DISCOVERY,
                 f"Active discovery failed: {e}"
+            )
+            raise
+
+    async def _run_deep_discovery(self):
+        """Execute deep discovery stage
+
+        Crawls live services for endpoints and attack surface expansion
+        """
+        logger.info("Stage 3: Deep Discovery")
+        self.result.metadata.status = DiscoveryStage.DEEP_DISCOVERY
+        self.result.add_timeline_event(
+            DiscoveryStage.DEEP_DISCOVERY,
+            "Starting web crawling"
+        )
+
+        try:
+            # Get live services from active discovery
+            if not self.result.services:
+                logger.warning("No live services found in active discovery, skipping deep stage")
+                return
+
+            # Create deep discovery stage
+            deep = DeepDiscovery(self.config)
+
+            # Run web crawling
+            deep_results = await deep.run(self.result.services)
+
+            # Store endpoints in result
+            self.result.endpoints = deep_results.endpoints
+
+            self.result.add_timeline_event(
+                DiscoveryStage.DEEP_DISCOVERY,
+                "Deep discovery completed",
+                {
+                    "endpoints_discovered": deep_results.total_endpoints,
+                    "unique_paths": len(deep_results.unique_paths),
+                    "services_crawled": deep_results.crawled_services
+                }
+            )
+
+            logger.info(f"Deep discovery complete: {deep_results.total_endpoints} endpoints")
+
+        except Exception as e:
+            logger.error(f"Deep discovery failed: {e}")
+            self.result.add_timeline_event(
+                DiscoveryStage.DEEP_DISCOVERY,
+                f"Deep discovery failed: {e}"
             )
             raise
 
