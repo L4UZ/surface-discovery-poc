@@ -51,43 +51,48 @@ class PassiveDiscovery:
         logger.info(f"Starting passive discovery for {target_domain}")
         results = PassiveResults()
 
-        # Run discovery tasks in parallel
-        tasks = [
-            self._enumerate_subdomains(target_domain),
-            self._collect_dns_records(target_domain),
-            self._fetch_whois(target_domain)
-        ]
+        # Phase 1: Run subdomain enumeration and WHOIS in parallel
+        subdomain_task = self._enumerate_subdomains(target_domain)
+        whois_task = self._fetch_whois(target_domain)
 
-        # Execute all tasks concurrently
-        subdomain_results, dns_results, whois_result = await asyncio.gather(
-            *tasks,
+        subdomain_results, whois_result = await asyncio.gather(
+            subdomain_task,
+            whois_task,
             return_exceptions=True
         )
 
         # Process subdomain enumeration results
         if isinstance(subdomain_results, Exception):
             logger.error(f"Subdomain enumeration failed: {subdomain_results}")
+            results.subdomains = []
         else:
             results.subdomains = subdomain_results
             results.total_subdomains = len(subdomain_results)
             logger.info(f"Discovered {results.total_subdomains} subdomains")
-
-        # Process DNS results
-        if isinstance(dns_results, Exception):
-            logger.error(f"DNS collection failed: {dns_results}")
-        else:
-            results.dns_records = dns_results
-
-            # Extract unique IPs
-            for dns_data in dns_results.values():
-                results.unique_ips.update(dns_data.a)
-                results.unique_ips.update(dns_data.aaaa)
 
         # Process WHOIS results
         if isinstance(whois_result, Exception):
             logger.warning(f"WHOIS lookup failed: {whois_result}")
         else:
             results.whois_data = whois_result
+
+        # Phase 2: Collect DNS records for root domain AND all discovered subdomains
+        try:
+            dns_results = await self._collect_dns_records(target_domain, results.subdomains)
+            results.dns_records = dns_results
+
+            # Extract unique IPs
+            for dns_data in dns_results.values():
+                if dns_data.a:
+                    results.unique_ips.update(dns_data.a)
+                if dns_data.aaaa:
+                    results.unique_ips.update(dns_data.aaaa)
+
+            logger.info(f"Collected DNS records for {len(dns_results)} hosts, "
+                       f"{len(results.unique_ips)} unique IPs")
+        except Exception as e:
+            logger.error(f"DNS collection failed: {e}")
+            results.dns_records = {}
 
         logger.info(f"Passive discovery complete: {results.total_subdomains} subdomains, "
                    f"{len(results.unique_ips)} unique IPs")
@@ -127,31 +132,46 @@ class PassiveDiscovery:
 
         return sorted(list(all_subdomains))
 
-    async def _collect_dns_records(self, domain: str) -> Dict[str, DNSRecords]:
+    async def _collect_dns_records(self, domain: str, subdomains: List[str] = None) -> Dict[str, DNSRecords]:
         """Collect DNS records for domain and subdomains
 
         Args:
-            domain: Target domain
+            domain: Target root domain
+            subdomains: List of discovered subdomains to resolve
 
         Returns:
             Dict mapping hostnames to DNS records
         """
-        logger.debug(f"Collecting DNS records for {domain}")
+        logger.debug(f"Collecting DNS records for {domain} and {len(subdomains or [])} subdomains")
         dns_data = {}
 
         try:
-            # Query A and AAAA records for root domain
-            output = await self.runner.run_dnsx(
+            # Always get full records for root domain
+            logger.debug(f"Querying full DNS records for root domain: {domain}")
+            root_output = await self.runner.run_dnsx(
                 domains=[domain],
                 record_types=['A', 'AAAA', 'MX', 'TXT', 'NS'],
                 timeout=self.config.dnsx_timeout
             )
+            root_dns_data = DNSXParser.parse(root_output)
+            dns_data.update(root_dns_data)
 
-            dns_data = DNSXParser.parse(output)
+            # Resolve subdomains if present (A and AAAA records only for efficiency)
+            if subdomains:
+                logger.debug(f"Resolving {len(subdomains)} subdomains...")
+                subdomain_output = await self.runner.run_dnsx(
+                    domains=subdomains,
+                    record_types=['A', 'AAAA'],
+                    timeout=self.config.dnsx_timeout
+                )
+                subdomain_dns_data = DNSXParser.parse(subdomain_output)
+                dns_data.update(subdomain_dns_data)
+
             logger.debug(f"Collected DNS records for {len(dns_data)} hosts")
 
         except Exception as e:
             logger.error(f"DNS collection failed: {e}")
+            raise
 
         return dns_data
 
@@ -177,9 +197,9 @@ class PassiveDiscovery:
                 registrar=w.registrar if hasattr(w, 'registrar') else None,
                 creation_date=self._parse_whois_date(w.creation_date) if hasattr(w, 'creation_date') else None,
                 expiration_date=self._parse_whois_date(w.expiration_date) if hasattr(w, 'expiration_date') else None,
-                name_servers=w.name_servers if hasattr(w, 'name_servers') and w.name_servers else [],
-                status=w.status if hasattr(w, 'status') and w.status else [],
-                emails=w.emails if hasattr(w, 'emails') and w.emails else []
+                name_servers=self._parse_whois_list(w.name_servers) if hasattr(w, 'name_servers') else [],
+                status=self._parse_whois_list(w.status) if hasattr(w, 'status') else [],
+                emails=self._parse_whois_list(w.emails) if hasattr(w, 'emails') else []
             )
 
             logger.debug(f"WHOIS data retrieved for {domain}")
@@ -207,6 +227,24 @@ class PassiveDiscovery:
             if isinstance(date_value[0], datetime):
                 return date_value[0]
         return None
+
+    def _parse_whois_list(self, value) -> List[str]:
+        """Parse WHOIS list field (can be list, str, or None)
+
+        Args:
+            value: WHOIS field value
+
+        Returns:
+            List of strings
+        """
+        if value is None:
+            return []
+        elif isinstance(value, list):
+            return [str(item) for item in value if item]
+        elif isinstance(value, str):
+            return [value] if value else []
+        else:
+            return []
 
     def to_domain_info(self, target: str, results: PassiveResults) -> DomainInfo:
         """Convert PassiveResults to DomainInfo model

@@ -34,7 +34,7 @@ fi
 # Configuration
 IMAGE_NAME="surface-discovery"
 TEST_TARGET="strike.sh"
-RESULTS_DIR="./results"
+RESULTS_DIR="./results/$(date +%Y_%m_%d_%H_%M_%S)"
 TEST_TIMEOUT=300  # 5 minutes for test
 BUILD_TIMEOUT=600 # 10 minutes for build
 
