@@ -11,6 +11,9 @@ python-whois>=0.8.0
 # Async operations
 asyncio-throttle>=1.0.0
 
+# Deep URL Discovery (Phase 0)
+playwright>=1.40.0
+
 # Utilities
 python-dateutil>=2.8.0
 tldextract>=5.0.0

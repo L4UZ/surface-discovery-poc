@@ -25,7 +25,7 @@ LABEL maintainer="surface-discovery"
 LABEL description="In-depth web attack surface discovery service"
 LABEL version="0.1.0"
 
-# Install runtime dependencies
+# Install runtime dependencies including Playwright browser dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libcap2-bin \
@@ -46,6 +46,10 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright and Chromium browser (Phase 0: Deep URL Discovery)
+# Note: This adds ~300MB to the image size but enables JavaScript execution for SPAs
+RUN playwright install chromium --with-deps
 
 # Copy application code
 COPY discovery/ ./discovery/

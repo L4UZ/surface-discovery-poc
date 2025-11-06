@@ -27,6 +27,13 @@ class DiscoveryConfig(BaseModel):
     max_crawl_services: int = Field(default=10, description="Max services to crawl deeply")
     crawl_depth: int = Field(default=3, description="Web crawling depth")
 
+    # Deep URL Discovery (Phase 0 - Playwright)
+    max_crawl_depth: int = Field(default=3, description="Maximum depth for deep crawler")
+    max_urls_per_domain: int = Field(default=500, description="Max URLs per domain")
+    form_interaction: bool = Field(default=False, description="Enable form submission and interaction")
+    javascript_execution: bool = Field(default=False, description="Enable JavaScript execution with Playwright")
+    crawl_timeout: int = Field(default=600, description="Deep crawl timeout in seconds")
+
     # Rate limiting
     http_rate_limit: int = Field(default=50, description="HTTP requests per second")
     dns_rate_limit: int = Field(default=100, description="DNS queries per second")
@@ -52,7 +59,13 @@ DEPTH_CONFIGS = {
         port_scan_rate=1000,
         max_subdomains=20,
         max_crawl_services=3,
-        crawl_depth=2
+        crawl_depth=2,
+        # Deep crawler settings (Phase 0)
+        max_crawl_depth=2,
+        max_urls_per_domain=100,
+        form_interaction=False,
+        javascript_execution=False,
+        crawl_timeout=300
     ),
     "normal": DiscoveryConfig(
         depth="normal",
@@ -61,7 +74,13 @@ DEPTH_CONFIGS = {
         naabu_timeout=180,
         port_scan_rate=1500,
         max_crawl_services=10,
-        crawl_depth=3
+        crawl_depth=3,
+        # Deep crawler settings (Phase 0)
+        max_crawl_depth=3,
+        max_urls_per_domain=500,
+        form_interaction=False,
+        javascript_execution=False,
+        crawl_timeout=600
     ),
     "deep": DiscoveryConfig(
         depth="deep",
@@ -71,7 +90,13 @@ DEPTH_CONFIGS = {
         naabu_timeout=300,
         port_scan_rate=2000,
         max_crawl_services=20,
-        crawl_depth=5
+        crawl_depth=5,
+        # Deep crawler settings (Phase 0)
+        max_crawl_depth=5,
+        max_urls_per_domain=2000,
+        form_interaction=True,
+        javascript_execution=True,  # Enable Playwright in deep mode
+        crawl_timeout=1200
     )
 }
 
