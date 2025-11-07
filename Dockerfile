@@ -38,18 +38,21 @@ COPY --from=go-builder /go/bin/* /usr/local/bin/
 # Set capabilities for naabu (port scanning)
 RUN setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip /usr/local/bin/naabu
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # Create app directory
 WORKDIR /app
 
-# Copy Python requirements first (for layer caching)
-COPY requirements.txt .
+# Copy dependency files first (for layer caching)
+COPY pyproject.toml .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies using uv
+RUN uv sync --no-dev --frozen
 
 # Install Playwright and Chromium browser (Phase 0: Deep URL Discovery)
 # Note: This adds ~300MB to the image size but enables JavaScript execution for SPAs
-RUN playwright install chromium --with-deps
+RUN uv run playwright install chromium --with-deps
 
 # Copy application code
 COPY discovery/ ./discovery/

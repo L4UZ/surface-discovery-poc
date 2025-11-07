@@ -6,7 +6,7 @@ set -e
 
 # If first argument is a flag or help, run CLI directly
 if [ "${1#-}" != "$1" ] || [ "$1" = "help" ] || [ "$1" = "--help" ]; then
-    exec python cli.py "$@"
+    exec uv run python cli.py "$@"
 fi
 
 # If first argument doesn't start with -, assume it's a URL
@@ -20,7 +20,7 @@ if [ "${1#-}" = "$1" ] && [ -n "$1" ]; then
     OUTPUT_FILE="${OUTPUT_FILE:-/output/discovery_results.json}"
 
     # Build command
-    CMD="python cli.py --url $URL --output $OUTPUT_FILE"
+    CMD="uv run python cli.py --url $URL --output $OUTPUT_FILE"
 
     # Add any additional arguments
     while [ $# -gt 0 ]; do

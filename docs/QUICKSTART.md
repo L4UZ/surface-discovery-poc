@@ -23,15 +23,21 @@ export PATH=$PATH:~/go/bin
 
 ```bash
 cd surface-discovery
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Sync dependencies and create virtual environment
+uv sync
+
+# Activate the virtual environment
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 ### 3. Verify Installation
 
 ```bash
-python cli.py --check-tools
+uv run python cli.py --check-tools
 ```
 
 You should see all tools marked as "✓ Installed".
@@ -41,7 +47,7 @@ You should see all tools marked as "✓ Installed".
 ### Simple Discovery
 
 ```bash
-python cli.py --url example.com
+uv run python cli.py --url example.com
 ```
 
 This will:
@@ -52,13 +58,13 @@ This will:
 ### Custom Output File
 
 ```bash
-python cli.py --url example.com --output my_results.json
+uv run python cli.py --url example.com --output my_results.json
 ```
 
 ### Deep Discovery
 
 ```bash
-python cli.py --url example.com --depth deep --verbose
+uv run python cli.py --url example.com --depth deep --verbose
 ```
 
 This enables:
@@ -79,19 +85,19 @@ This enables:
 ### Quick Test
 ```bash
 # Test with example.com (minimal surface)
-python cli.py --url example.com --depth shallow
+uv run python cli.py --url example.com --depth shallow
 ```
 
 ### Vulnerable Test Target
 ```bash
 # Test with intentionally vulnerable site (requires permission!)
-python cli.py --url testphp.vulnweb.com --depth normal --verbose
+uv run python cli.py --url testphp.vulnweb.com --depth normal --verbose
 ```
 
 ### Custom Configuration
 ```bash
 # Override specific settings
-python cli.py \
+uv run python cli.py \
   --url example.com \
   --depth normal \
   --timeout 900 \
@@ -158,10 +164,10 @@ export PATH=$PATH:~/go/bin
 
 ### Python module errors
 
-Activate virtual environment:
+Sync dependencies with uv:
 ```bash
-source venv/bin/activate
-pip install -r requirements.txt
+uv sync
+source .venv/bin/activate
 ```
 
 ### Permission errors
@@ -184,17 +190,17 @@ sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which naabu)
 
 ### Running Tests (when implemented)
 ```bash
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ### Code Formatting
 ```bash
-black discovery/ tests/
+uv run black discovery/ tests/
 ```
 
 ### Type Checking
 ```bash
-mypy discovery/
+uv run mypy discovery/
 ```
 
 ## Support

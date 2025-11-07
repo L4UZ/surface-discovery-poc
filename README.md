@@ -91,9 +91,20 @@ go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
 #### Python Environment
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Sync dependencies and create virtual environment
+uv sync
+
+# Activate the virtual environment (manual method)
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Or use direnv for automatic activation (recommended)
+brew install direnv  # macOS, or: sudo apt install direnv (Linux)
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc
+direnv allow .
+# Now the venv activates automatically when you cd into the directory!
 ```
 
 ## Usage
@@ -134,12 +145,12 @@ docker-compose run --rm \
 
 Basic discovery:
 ```bash
-python cli.py --url https://example.com --output results.json
+uv run python cli.py --url https://example.com --output results.json
 ```
 
 Advanced options:
 ```bash
-python cli.py \
+uv run python cli.py \
   --url https://example.com \
   --output results.json \
   --depth deep \
@@ -184,17 +195,17 @@ discovery/
 
 Run tests:
 ```bash
-pytest tests/
+uv run pytest tests/
 ```
 
 Format code:
 ```bash
-black discovery/ tests/
+uv run black discovery/ tests/
 ```
 
 Type checking:
 ```bash
-mypy discovery/
+uv run mypy discovery/
 ```
 
 ## License

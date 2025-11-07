@@ -1,0 +1,14 @@
+# Automatically activate the uv-managed virtual environment
+# This file is managed by direnv - see https://direnv.net/
+
+# Activate uv's virtual environment
+source .venv/bin/activate
+
+# Optional: Add custom environment variables here
+# export ENVIRONMENT=development
+# export LOG_LEVEL=DEBUG
+# export API_TOKEN=your_token_here
+# export SESSION_ID=your_session_id
+
+# Optional: Add project-specific PATH entries
+# export PATH="$PWD/scripts:$PATH"
