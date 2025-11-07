@@ -76,17 +76,20 @@ See [docs/AUTHENTICATED_SCAN.md](docs/AUTHENTICATED_SCAN.md) for complete authen
 
 #### Prerequisites
 
-Install required external tools:
+Install required external tools using the provided script:
 
 ```bash
-# Install Go-based security tools
-go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
-go install -v github.com/projectdiscovery/katana/cmd/katana@latest
-go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+# Run the automated installation script
+./scripts/install-tools.sh
 ```
+
+This will install all required ProjectDiscovery tools:
+- subfinder (subdomain enumeration)
+- httpx (HTTP probing)
+- nuclei (vulnerability scanning)
+- katana (web crawling)
+- dnsx (DNS resolution)
+- naabu (port scanning)
 
 #### Python Environment
 

@@ -4,20 +4,19 @@
 
 ### 1. Install External Tools
 
+Use the automated installation script:
+
 ```bash
-# Install Go-based security tools
-go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
-go install -v github.com/projectdiscovery/katana/cmd/katana@latest
-go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+cd surface-discovery
+./scripts/install-tools.sh
 ```
 
-Ensure `~/go/bin` is in your PATH:
-```bash
-export PATH=$PATH:~/go/bin
-```
+This script will:
+- Check if Go is installed
+- Install all required ProjectDiscovery tools (subfinder, httpx, nuclei, katana, dnsx, naabu)
+- Set up network capabilities for naabu (Linux only)
+- Verify all installations
+- Add `~/go/bin` to your PATH if needed
 
 ### 2. Setup Python Environment
 
