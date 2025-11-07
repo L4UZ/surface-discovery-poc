@@ -12,7 +12,6 @@ from .stages.port_discovery import PortDiscovery
 from .stages.active import ActiveDiscovery
 from .stages.deep import DeepDiscovery
 from .stages.enrichment import EnrichmentStage
-from .stages.vulnerability import VulnerabilityScanner
 from .utils.helpers import extract_domain
 from .utils.logger import setup_logger
 
@@ -86,17 +85,6 @@ class DiscoveryEngine:
 
             # Stage 4: Enrichment
             await self._run_enrichment()
-
-            # TODO: Remove vulnerability scanning stage completely from the codebase.
-            # # Stage 5: Vulnerability Scanning
-            # if not self.config.skip_vuln_scan:
-            #     await self._run_vulnerability_scan()
-            # else:
-            #     logger.info("Stage 5: Vulnerability Scanning (skipped by --skip-vuln-scan flag)")
-            #     self.result.add_timeline_event(
-            #         DiscoveryStage.COMPLETED,
-            #         "Vulnerability scanning skipped by user configuration"
-            #     )
 
             # Finalize
             await self._finalize()
@@ -366,62 +354,6 @@ class DiscoveryEngine:
                 f"Enrichment failed: {e}"
             )
             # Don't raise - enrichment failure shouldn't stop the pipeline
-
-    async def _run_vulnerability_scan(self):
-        """Execute vulnerability scanning stage
-
-        Scans discovered services and endpoints for security vulnerabilities
-        """
-        logger.info("Stage 5: Vulnerability Scanning")
-        self.result.metadata.status = DiscoveryStage.COMPLETED  # Using COMPLETED for final stage
-        self.result.add_timeline_event(
-            DiscoveryStage.COMPLETED,
-            "Starting vulnerability scanning"
-        )
-
-        try:
-            # Get services and endpoints from previous stages
-            if not self.result.services:
-                logger.warning("No live services found, skipping vulnerability scanning")
-                return
-
-            # Create vulnerability scanner
-            scanner = VulnerabilityScanner(self.config)
-
-            # Run vulnerability scanning
-            vuln_results = await scanner.run(
-                self.result.services,
-                self.result.endpoints
-            )
-
-            # Store findings in result
-            self.result.findings = vuln_results.findings
-
-            self.result.add_timeline_event(
-                DiscoveryStage.COMPLETED,
-                "Vulnerability scanning completed",
-                {
-                    "total_scans": vuln_results.total_scans,
-                    "vulnerabilities_found": vuln_results.vulnerabilities_found,
-                    "critical": vuln_results.critical_count,
-                    "high": vuln_results.high_count,
-                    "medium": vuln_results.medium_count
-                }
-            )
-
-            logger.info(
-                f"Vulnerability scanning complete: {vuln_results.vulnerabilities_found} findings "
-                f"(critical: {vuln_results.critical_count}, high: {vuln_results.high_count}, "
-                f"medium: {vuln_results.medium_count})"
-            )
-
-        except Exception as e:
-            logger.error(f"Vulnerability scanning failed: {e}")
-            self.result.add_timeline_event(
-                DiscoveryStage.COMPLETED,
-                f"Vulnerability scanning failed: {e}"
-            )
-            # Don't raise - vulnerability scan failure shouldn't stop the pipeline
 
     async def _finalize(self):
         """Finalize discovery and update metadata"""
