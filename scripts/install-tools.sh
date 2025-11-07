@@ -72,7 +72,7 @@ for entry in "${TOOLS[@]}"; do
     # Check if already installed
     if command -v "$tool" &> /dev/null; then
         echo -e "${BLUE}ℹ $tool is already installed ($(which $tool))${NC}"
-        ((SKIPPED++))
+        SKIPPED=$((SKIPPED + 1))
         continue
     fi
 
@@ -80,10 +80,10 @@ for entry in "${TOOLS[@]}"; do
 
     if go install -v "$package"; then
         echo -e "${GREEN}✓ $tool installed successfully${NC}"
-        ((INSTALLED++))
+        INSTALLED=$((INSTALLED + 1))
     else
         echo -e "${RED}✗ Failed to install $tool${NC}"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
     echo ""
 done

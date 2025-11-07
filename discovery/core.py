@@ -87,15 +87,16 @@ class DiscoveryEngine:
             # Stage 4: Enrichment
             await self._run_enrichment()
 
-            # Stage 5: Vulnerability Scanning
-            if not self.config.skip_vuln_scan:
-                await self._run_vulnerability_scan()
-            else:
-                logger.info("Stage 5: Vulnerability Scanning (skipped by --skip-vuln-scan flag)")
-                self.result.add_timeline_event(
-                    DiscoveryStage.COMPLETED,
-                    "Vulnerability scanning skipped by user configuration"
-                )
+            # TODO: Remove vulnerability scanning stage completely from the codebase.
+            # # Stage 5: Vulnerability Scanning
+            # if not self.config.skip_vuln_scan:
+            #     await self._run_vulnerability_scan()
+            # else:
+            #     logger.info("Stage 5: Vulnerability Scanning (skipped by --skip-vuln-scan flag)")
+            #     self.result.add_timeline_event(
+            #         DiscoveryStage.COMPLETED,
+            #         "Vulnerability scanning skipped by user configuration"
+            #     )
 
             # Finalize
             await self._finalize()

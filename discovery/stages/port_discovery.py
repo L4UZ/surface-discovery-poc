@@ -29,6 +29,7 @@ class PortDiscovery:
         Args:
             config: Discovery configuration
         """
+        logger.debug(f"[PORT_DISCOVERY] Initializing port discovery with config: {config}")
         self.config = config
         self.runner = ToolRunner(timeout=config.naabu_timeout if hasattr(config, 'naabu_timeout') else 180)
 

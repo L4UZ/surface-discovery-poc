@@ -1,6 +1,9 @@
 # Automatically activate the uv-managed virtual environment
 # This file is managed by direnv - see https://direnv.net/
 
+# Add Go binaries to PATH (required for ProjectDiscovery tools)
+export PATH="$HOME/go/bin:$PATH"
+
 # Activate uv's virtual environment
 source .venv/bin/activate
 

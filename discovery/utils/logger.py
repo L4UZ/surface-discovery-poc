@@ -1,5 +1,6 @@
 """Logging configuration"""
 import logging
+import os
 import sys
 from rich.logging import RichHandler
 from rich.console import Console
@@ -9,8 +10,11 @@ def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
     """Setup logger with rich handler"""
     logger = logging.getLogger(name)
 
-    # Set level
-    level = logging.DEBUG if verbose else logging.INFO
+
+    level = os.getenv("LOG_LEVEL", "DEBUG").upper()
+
+    verbose = verbose or level == "DEBUG"
+
     logger.setLevel(level)
 
     # Remove existing handlers
@@ -26,11 +30,17 @@ def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
     )
     handler.setLevel(level)
 
-    # Format
-    formatter = logging.Formatter(
-        "%(message)s",
-        datefmt="[%X]"
-    )
+    # Format - include filename when debug level
+    if level == "DEBUG":
+        formatter = logging.Formatter(
+            "%(filename)s: %(message)s",
+            datefmt="[%X]"
+        )
+    else:
+        formatter = logging.Formatter(
+            "%(message)s",
+            datefmt="[%X]"
+        )
     handler.setFormatter(formatter)
 
     logger.addHandler(handler)
