@@ -435,9 +435,23 @@ class ToolRunner:
             stderr=asyncio.subprocess.PIPE
         )
 
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(input=hosts_input.encode()),
-            timeout=timeout or self.timeout
-        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(input=hosts_input.encode()),
+                timeout=timeout or self.timeout
+            )
+        except asyncio.TimeoutError:
+            # Provide detailed timeout information for debugging
+            timeout_val = timeout or self.timeout
+            port_desc = f"top-{top_ports}" if top_ports else (ports if ports else "default")
+            logger.error(
+                f"naabu timeout after {timeout_val}s: "
+                f"{len(hosts)} hosts, {port_desc} ports, rate={rate}pps"
+            )
+            raise ToolExecutionError(
+                f"Port scan timeout after {timeout_val}s "
+                f"({len(hosts)} hosts, {port_desc} ports, rate={rate}pps). "
+                f"Consider increasing naabu_timeout or reducing port range."
+            )
 
         return stdout.decode('utf-8', errors='replace')

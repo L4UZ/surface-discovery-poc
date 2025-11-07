@@ -41,14 +41,25 @@ class PortDiscovery:
         Returns:
             PortDiscoveryResults with scan statistics
         """
-        logger.info(f"Starting port discovery for {len(subdomains)} subdomains")
+        logger.info(f"[PORT_DISCOVERY] Starting port discovery for {len(subdomains)} subdomains")
+        logger.info(f"[PORT_DISCOVERY] Config depth: {self.config.depth}, naabu_timeout: {self.config.naabu_timeout}")
         results = PortDiscoveryResults()
 
         # Filter subdomains that have IP addresses
         scannable_subdomains = [sub for sub in subdomains if sub.ips]
+        filtered_out = len(subdomains) - len(scannable_subdomains)
+
+        logger.info(f"[PORT_DISCOVERY] Filtered: {filtered_out}, Scannable: {len(scannable_subdomains)}")
+
+        if filtered_out > 0:
+            logger.warning(
+                f"Filtered out {filtered_out}/{len(subdomains)} subdomains with no resolved IPs"
+            )
 
         if not scannable_subdomains:
-            logger.warning("No subdomains with resolved IPs to scan")
+            logger.warning(
+                "No subdomains with resolved IPs to scan - skipping port discovery"
+            )
             return results
 
         logger.info(f"Scanning {len(scannable_subdomains)} subdomains with resolved IPs")
@@ -62,11 +73,23 @@ class PortDiscovery:
                 hosts_to_scan.append(ip)
                 subdomain_by_ip[ip] = subdomain
 
-        # Determine port configuration based on depth
-        ports, top_ports, rate = self._get_port_config()
+        logger.info(f"[PORT_DISCOVERY] Built hosts_to_scan list: {len(hosts_to_scan)} IPs from {len(scannable_subdomains)} subdomains")
+
+        # Determine port configuration based on depth and host count
+        ports, top_ports, rate = self._get_port_config(len(hosts_to_scan))
+        logger.info(f"[PORT_DISCOVERY] Port config: ports={ports}, top_ports={top_ports}, rate={rate}")
+
+        # Log progress estimate for deep scans
+        if self.config.depth == "deep":
+            estimated_time = self._estimate_scan_time(len(hosts_to_scan), ports, top_ports, rate)
+            logger.info(
+                f"Deep port scan starting: {len(hosts_to_scan)} hosts, "
+                f"estimated time: {estimated_time:.1f} minutes"
+            )
 
         try:
             # Run naabu port scan
+            logger.info(f"[PORT_DISCOVERY] Calling naabu with {len(hosts_to_scan)} hosts, timeout={self.config.naabu_timeout if hasattr(self.config, 'naabu_timeout') else 180}s")
             output = await self.runner.run_naabu(
                 hosts=hosts_to_scan,
                 ports=ports,
@@ -74,6 +97,7 @@ class PortDiscovery:
                 rate=rate,
                 timeout=self.config.naabu_timeout if hasattr(self.config, 'naabu_timeout') else 180
             )
+            logger.info(f"[PORT_DISCOVERY] naabu completed, parsing output...")
 
             # Parse results
             results.total_hosts_scanned = len(hosts_to_scan)
@@ -106,8 +130,15 @@ class PortDiscovery:
 
         return results
 
-    def _get_port_config(self):
-        """Get port configuration based on discovery depth
+    def _get_port_config(self, host_count: int):
+        """Get port configuration based on discovery depth and host count
+
+        Adaptive configuration: For deep scans with many hosts, use top 10K ports
+        instead of full range to stay within timeout limits while maintaining
+        comprehensive coverage.
+
+        Args:
+            host_count: Number of hosts to scan
 
         Returns:
             Tuple of (ports, top_ports, rate)
@@ -121,8 +152,22 @@ class PortDiscovery:
             # Top 1000 ports, moderate rate
             return None, 1000, 1500
         elif depth == "deep":
-            # Full port range, aggressive rate
-            return "-", None, 2000
+            # Adaptive configuration based on host count
+            # For many hosts (>50), scanning all 65535 ports would exceed timeout
+            # Math: 50 hosts × 65535 ports / 3000 pps = ~18 minutes
+            # Instead use top 10K ports: 50 hosts × 10000 ports / 3000 pps = ~3 minutes
+            if host_count > 50:
+                logger.info(
+                    f"Deep scan with {host_count} hosts: using top 10K ports "
+                    f"instead of full range to stay within timeout"
+                )
+                return None, 10000, 3000  # Top 10K ports, higher rate
+            else:
+                # For fewer hosts, full port range is feasible
+                logger.info(
+                    f"Deep scan with {host_count} hosts: using full port range (65535)"
+                )
+                return "-", None, 3000  # Full range, increased rate from 2000→3000
         else:
             # Fallback to normal
             return None, 1000, 1500
@@ -204,3 +249,34 @@ class PortDiscovery:
             return 65535
         else:
             return 1000
+
+    def _estimate_scan_time(
+        self,
+        host_count: int,
+        ports: str,
+        top_ports: int,
+        rate: int
+    ) -> float:
+        """Estimate port scan time in minutes
+
+        Args:
+            host_count: Number of hosts to scan
+            ports: Port specification ("-" for all)
+            top_ports: Top N ports to scan
+            rate: Packets per second
+
+        Returns:
+            Estimated time in minutes
+        """
+        # Calculate total port checks
+        if top_ports:
+            total_checks = host_count * top_ports
+        elif ports == "-":
+            total_checks = host_count * 65535
+        else:
+            total_checks = host_count * 1000  # Conservative estimate
+
+        # Estimate time: total_checks / rate / 60 (convert to minutes)
+        # Add 20% overhead for network latency and processing
+        estimated_seconds = (total_checks / rate) * 1.2
+        return estimated_seconds / 60

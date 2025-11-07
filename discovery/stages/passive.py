@@ -158,7 +158,7 @@ class PassiveDiscovery:
 
             # Resolve subdomains if present (A and AAAA records only for efficiency)
             if subdomains:
-                logger.debug(f"Resolving {len(subdomains)} subdomains...")
+                logger.info(f"Resolving {len(subdomains)} subdomains to IP addresses...")
                 subdomain_output = await self.runner.run_dnsx(
                     domains=subdomains,
                     record_types=['A', 'AAAA'],
@@ -166,6 +166,7 @@ class PassiveDiscovery:
                 )
                 subdomain_dns_data = DNSXParser.parse(subdomain_output)
                 dns_data.update(subdomain_dns_data)
+                logger.info(f"DNS resolution complete: {len(subdomain_dns_data)}/{len(subdomains)} subdomains returned records")
 
             logger.debug(f"Collected DNS records for {len(dns_data)} hosts")
 
@@ -258,6 +259,7 @@ class PassiveDiscovery:
         """
         # Convert subdomains to Subdomain objects
         subdomain_objects = []
+        resolved_count = 0
 
         for subdomain_name in results.subdomains:
             # Get DNS records if available
@@ -268,6 +270,8 @@ class PassiveDiscovery:
             if dns_records:
                 ips.extend(dns_records.a)
                 ips.extend(dns_records.aaaa)
+                if ips:
+                    resolved_count += 1
 
             subdomain = Subdomain(
                 name=subdomain_name,
@@ -278,6 +282,15 @@ class PassiveDiscovery:
                 discovered_at=datetime.utcnow()
             )
             subdomain_objects.append(subdomain)
+
+        # Log IP resolution statistics
+        logger.info(
+            f"DNS resolution: {resolved_count}/{len(subdomain_objects)} subdomains resolved to IPs"
+        )
+        if resolved_count == 0:
+            logger.warning(
+                "No subdomains resolved to IP addresses - port scanning and active discovery will be skipped"
+            )
 
         # Build DomainInfo
         domain_info = DomainInfo(
