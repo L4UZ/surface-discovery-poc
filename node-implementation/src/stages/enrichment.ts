@@ -114,10 +114,15 @@ export class Enrichment {
   /**
    * Enrich a single subdomain with infrastructure information
    */
-  private enrichSubdomain(subdomain: Subdomain): InfrastructureInfo | null {
+  private enrichSubdomain(subdomain: Subdomain): InfrastructureInfo {
     try {
       // Extract infrastructure info from IPs
-      const infraInfo: InfrastructureInfo = {};
+      const infraInfo: InfrastructureInfo = {
+        cloudProvider: undefined,
+        cdnProvider: undefined,
+        asn: undefined,
+        asnOrg: undefined,
+      };
 
       if (subdomain.ips && subdomain.ips.length > 0) {
         // Check cloud provider based on IP
@@ -133,14 +138,17 @@ export class Enrichment {
             infraInfo.cdnProvider = cdnProvider;
           }
         }
-
-        return infraInfo;
       }
 
-      return null;
+      return infraInfo;
     } catch (error) {
       logger.debug(`Failed to enrich ${subdomain.name}: ${String(error)}`);
-      return null;
+      return {
+        cloudProvider: undefined,
+        cdnProvider: undefined,
+        asn: undefined,
+        asnOrg: undefined,
+      };
     }
   }
 }

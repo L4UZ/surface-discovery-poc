@@ -86,7 +86,7 @@ export class ActiveDiscovery {
         this.config.httpxTimeout,
         true, // tech detection
         true, // follow redirects
-        true  // JSON output
+        true // JSON output
       );
 
       // Parse JSON output
@@ -95,7 +95,7 @@ export class ActiveDiscovery {
 
       return services;
     } catch (error) {
-      logger.error(`httpx execution failed: ${error}`);
+      logger.error(`httpx execution failed: ${String(error)}`);
       throw error;
     }
   }
@@ -117,7 +117,7 @@ export class ActiveDiscovery {
         if (!servicesByDomain.has(hostname)) {
           servicesByDomain.set(hostname, []);
         }
-        servicesByDomain.get(hostname)!.push(service);
+        servicesByDomain.get(hostname).push(service);
       } catch (error) {
         logger.warn(`Failed to parse URL: ${service.url}`);
       }
@@ -135,8 +135,6 @@ export class ActiveDiscovery {
     }
 
     const liveCount = subdomains.filter((sub) => sub.status === 'live').length;
-    logger.info(
-      `Updated subdomain statuses: ${liveCount}/${subdomains.length} live`
-    );
+    logger.info(`Updated subdomain statuses: ${liveCount}/${subdomains.length} live`);
   }
 }

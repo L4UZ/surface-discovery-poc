@@ -21,13 +21,25 @@ export enum LogLevel {
 const consoleFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.colorize({ all: true }),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    let log = `${timestamp} [${level}] ${message}`;
-    if (Object.keys(meta).length > 0) {
-      log += ` ${JSON.stringify(meta)}`;
+  winston.format.printf(
+    ({
+      timestamp,
+      level,
+      message,
+      ...meta
+    }: {
+      timestamp: string;
+      level: string;
+      message: string;
+      meta: Record<string, unknown>;
+    }) => {
+      let log: string = `${timestamp} [${level}] ${message}`;
+      if (Object.keys(meta).length > 0) {
+        log += ` ${JSON.stringify(meta)}`;
+      }
+      return log;
     }
-    return log;
-  }),
+  )
 );
 
 /**
@@ -36,7 +48,7 @@ const consoleFormat = winston.format.combine(
 const fileFormat = winston.format.combine(
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
-  winston.format.json(),
+  winston.format.json()
 );
 
 /**
@@ -67,14 +79,14 @@ export function createLogger(level: LogLevel = LogLevel.INFO): winston.Logger {
 export function addFileTransport(
   logger: winston.Logger,
   filename: string,
-  level: LogLevel = LogLevel.DEBUG,
+  level: LogLevel = LogLevel.DEBUG
 ): void {
   logger.add(
     new winston.transports.File({
       filename,
       level,
       format: fileFormat,
-    }),
+    })
   );
 }
 
@@ -117,7 +129,7 @@ export function logError(message: string, error: unknown): void {
 export function logStage(
   stage: string,
   action: 'start' | 'complete' | 'error',
-  details?: Record<string, unknown>,
+  details?: Record<string, unknown>
 ): void {
   const message = `${stage} - ${action}`;
   if (action === 'error') {

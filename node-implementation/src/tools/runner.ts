@@ -213,6 +213,7 @@ export class ToolRunner {
     }
 
     const result = await this.run(command, timeoutOverride, false);
+
     return result.stdout;
   }
 

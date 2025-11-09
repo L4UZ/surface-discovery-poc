@@ -164,7 +164,7 @@ export function getConfig(
       ...baseConfig,
       ...overrides,
     };
-    return discoveryConfigSchema.parse(mergedConfig) as DiscoveryConfig;
+    return discoveryConfigSchema.parse(mergedConfig);
   }
 
   return baseConfig as DiscoveryConfig;

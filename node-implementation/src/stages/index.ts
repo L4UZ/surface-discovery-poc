@@ -1,7 +1,3 @@
-/**
- * Discovery stages barrel export
- */
-
 export * from './passive.js';
 export * from './portDiscovery.js';
 export * from './active.js';

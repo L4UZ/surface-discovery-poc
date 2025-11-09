@@ -18,7 +18,7 @@ export function extractDomain(url: string): string {
     normalizedUrl = `https://${url}`;
   }
 
-  const parsed = parseUrl(normalizedUrl);
+  const parsed = new URL(normalizedUrl);
   const hostname = parsed.hostname || parsed.pathname || '';
 
   // Extract domain parts using tldts
@@ -28,8 +28,8 @@ export function extractDomain(url: string): string {
     throw new Error(`Could not extract domain from: ${url}`);
   }
 
-  // Return domain.suffix (e.g., example.com)
-  return `${result.domain}.${result.publicSuffix}`;
+  // Return the domain (tldts already includes the public suffix)
+  return result.domain;
 }
 
 /**
@@ -76,8 +76,7 @@ export function normalizeUrl(url: string): string {
  */
 export function isValidDomain(domain: string): boolean {
   // Basic domain regex
-  const pattern =
-    /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+  const pattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
   return pattern.test(domain);
 }
 
@@ -120,11 +119,7 @@ export function sanitizeFilename(filename: string): string {
  */
 export function generateScanId(): string {
   const now = new Date();
-  const timestamp = now
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '_')
-    .split('.')[0];
+  const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0];
   const random = Math.random().toString(36).substring(2, 8);
   return `scan_${timestamp}_${random}`;
 }
@@ -166,15 +161,9 @@ export function delay(ms: number): Promise<void> {
  * @param hostname - Hostname
  * @returns Cloud provider name or undefined
  */
-export function getCloudProvider(
-  _ip: string,
-  hostname?: string
-): string | undefined {
+export function getCloudProvider(_ip: string, hostname?: string): string | undefined {
   // AWS detection
-  if (
-    hostname?.includes('amazonaws.com') ||
-    hostname?.includes('aws.amazon.com')
-  ) {
+  if (hostname?.includes('amazonaws.com') || hostname?.includes('aws.amazon.com')) {
     return 'AWS';
   }
 
@@ -224,18 +213,12 @@ export function getCdnProvider(
   headers?: Record<string, string>
 ): string | undefined {
   // Cloudflare detection
-  if (
-    headers?.['cf-ray'] ||
-    headers?.['server']?.toLowerCase().includes('cloudflare')
-  ) {
+  if (headers?.['cf-ray'] || headers?.['server']?.toLowerCase().includes('cloudflare')) {
     return 'Cloudflare';
   }
 
   // Fastly detection
-  if (
-    headers?.['x-served-by']?.includes('cache') ||
-    headers?.['x-fastly-request-id']
-  ) {
+  if (headers?.['x-served-by']?.includes('cache') || headers?.['x-fastly-request-id']) {
     return 'Fastly';
   }
 
@@ -257,10 +240,7 @@ export function getCdnProvider(
   }
 
   // Incapsula detection
-  if (
-    headers?.['x-iinfo'] ||
-    headers?.['x-cdn']?.toLowerCase().includes('incapsula')
-  ) {
+  if (headers?.['x-iinfo'] || headers?.['x-cdn']?.toLowerCase().includes('incapsula')) {
     return 'Incapsula';
   }
 

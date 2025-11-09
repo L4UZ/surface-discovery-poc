@@ -43,7 +43,7 @@ export class AuthenticatedDiscovery {
    */
   async run(authConfig: AuthenticationConfig): Promise<AuthenticatedResults> {
     logStage('authenticated', 'start', {
-      totalTargets: Object.keys(authConfig.targets).length,
+      totalTargets: authConfig.targets?.length ?? 0,
     });
 
     const results: AuthenticatedResults = {
@@ -80,7 +80,7 @@ export class AuthenticatedDiscovery {
 
       logger.info(
         `Authenticated discovery complete: ${results.totalUrls} URLs, ` +
-        `${results.totalEndpoints} endpoints across ${targets.length} targets`
+          `${results.totalEndpoints} endpoints across ${targets.length} targets`
       );
 
       logStage('authenticated', 'complete', {

@@ -73,7 +73,7 @@ export class PassiveDiscovery {
       }
 
       logger.info(
-        `Collected DNS records for ${dnsResults.size} hosts, ${results.uniqueIps.size} unique IPs`,
+        `Collected DNS records for ${dnsResults.size} hosts, ${results.uniqueIps.size} unique IPs`
       );
 
       logStage('passive', 'complete', {
@@ -98,17 +98,13 @@ export class PassiveDiscovery {
     const allSubdomains = new Set<string>();
 
     try {
-      const output = await this.runner.runSubfinder(
-        domain,
-        this.config.subfinderTimeout,
-        true,
-      );
+      const output = await this.runner.runSubfinder(domain, this.config.subfinderTimeout, true);
 
       const subdomains = SubfinderParser.parse(output);
       subdomains.forEach((subdomain) => allSubdomains.add(subdomain));
       logger.debug(`Subfinder found ${subdomains.length} subdomains`);
     } catch (error) {
-      logger.error(`Subfinder execution failed: ${error}`);
+      logger.error(`Subfinder execution failed: ${String(error)}`);
     }
 
     // Apply limit if configured
@@ -129,11 +125,9 @@ export class PassiveDiscovery {
    */
   private async collectDnsRecords(
     domain: string,
-    subdomains: string[],
+    subdomains: string[]
   ): Promise<Map<string, DNSRecords>> {
-    logger.debug(
-      `Collecting DNS records for ${domain} and ${subdomains.length} subdomains`,
-    );
+    logger.debug(`Collecting DNS records for ${domain} and ${subdomains.length} subdomains`);
 
     const dnsData = new Map<string, DNSRecords>();
 
@@ -143,7 +137,7 @@ export class PassiveDiscovery {
       const rootOutput = await this.runner.runDnsx(
         [domain],
         ['A', 'AAAA', 'MX', 'TXT', 'NS'],
-        this.config.dnsxTimeout,
+        this.config.dnsxTimeout
       );
 
       const rootDnsData = DNSXParser.parse(rootOutput);
@@ -155,20 +149,20 @@ export class PassiveDiscovery {
         const subdomainOutput = await this.runner.runDnsx(
           subdomains,
           ['A', 'AAAA'],
-          this.config.dnsxTimeout,
+          this.config.dnsxTimeout
         );
 
         const subdomainDnsData = DNSXParser.parse(subdomainOutput);
         subdomainDnsData.forEach((value, key) => dnsData.set(key, value));
 
         logger.info(
-          `DNS resolution complete: ${subdomainDnsData.size}/${subdomains.length} subdomains returned records`,
+          `DNS resolution complete: ${subdomainDnsData.size}/${subdomains.length} subdomains returned records`
         );
       }
 
       logger.debug(`Collected DNS records for ${dnsData.size} hosts`);
     } catch (error) {
-      logger.error(`DNS collection failed: ${error}`);
+      logger.error(`DNS collection failed: ${String(error)}`);
       throw error;
     }
 
@@ -217,12 +211,12 @@ export class PassiveDiscovery {
 
     // Log IP resolution statistics
     logger.info(
-      `DNS resolution: ${resolvedCount}/${subdomainObjects.length} subdomains resolved to IPs`,
+      `DNS resolution: ${resolvedCount}/${subdomainObjects.length} subdomains resolved to IPs`
     );
 
     if (resolvedCount === 0) {
       logger.warn(
-        'No subdomains resolved to IP addresses - port scanning and active discovery will be skipped',
+        'No subdomains resolved to IP addresses - port scanning and active discovery will be skipped'
       );
     }
 

@@ -13,6 +13,7 @@ import {
   type DiscoveryResult,
   type TimelineEvent,
   type DiscoveryMetadata,
+  Service,
 } from './models/index.js';
 import { PassiveDiscovery } from './stages/passive.js';
 import { PortDiscovery } from './stages/portDiscovery.js';
@@ -118,7 +119,7 @@ export class DiscoveryEngine {
       await this.runDeepDiscovery();
 
       // Stage 4: Enrichment
-      await this.runEnrichment();
+      this.runEnrichment();
 
       // Stage 5: Authenticated Discovery (if configured)
       if (authConfig) {
@@ -126,7 +127,7 @@ export class DiscoveryEngine {
       }
 
       // Finalize
-      await this.finalize();
+      this.finalize();
     } catch (error: any) {
       logger.error(`Discovery failed: ${error}`);
       if (this.result) {
@@ -295,7 +296,7 @@ export class DiscoveryEngine {
   /**
    * Execute enrichment stage
    */
-  private async runEnrichment(): Promise<void> {
+  private runEnrichment(): void {
     logger.info('Stage 4: Enrichment');
     if (!this.result) return;
 
@@ -309,7 +310,7 @@ export class DiscoveryEngine {
       }
 
       const enrichment = new Enrichment(this.config);
-      const enrichmentResults = await enrichment.run(this.result.domains.subdomains);
+      const enrichmentResults = enrichment.run(this.result.domains.subdomains);
 
       // Store infrastructure data
       this.result.infrastructure = {
@@ -423,8 +424,9 @@ export class DiscoveryEngine {
   /**
    * Extract unique technologies from services
    */
-  private extractTechnologies(services: any[]): any[] {
-    const techMap = new Map<string, any>();
+  // TODO: Add types
+  private extractTechnologies(services: Service[]): object[] {
+    const techMap = new Map<string, object>();
 
     for (const service of services) {
       if (service.technologies) {

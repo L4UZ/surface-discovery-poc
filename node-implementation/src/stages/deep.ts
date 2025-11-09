@@ -71,7 +71,7 @@ export class DeepDiscovery {
 
       logger.info(
         `Deep discovery complete: ${results.totalUrls} URLs, ` +
-        `${results.totalEndpoints} endpoints, ${results.totalForms} forms`
+          `${results.totalEndpoints} endpoints, ${results.totalForms} forms`
       );
 
       logStage('deep', 'complete', {
@@ -119,7 +119,7 @@ export class DeepDiscovery {
             urlsByTarget.set(targetUrl, []);
           }
 
-          urlsByTarget.get(targetUrl)!.push({
+          urlsByTarget.get(targetUrl).push({
             url: urlData.url,
             method: urlData.method ?? 'GET',
             parameters: this.extractParameters(urlData.url),
@@ -146,7 +146,7 @@ export class DeepDiscovery {
 
       return results;
     } catch (error) {
-      logger.error(`katana execution failed: ${error}`);
+      logger.error(`katana execution failed: ${String(error)}`);
       throw error;
     }
   }

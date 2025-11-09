@@ -14,6 +14,7 @@ import type {
   SecurityHeaders,
   PortScanResult,
 } from '../models/index.js';
+import z from 'zod';
 
 /**
  * Parse subfinder output to list of subdomains
@@ -66,7 +67,7 @@ export class HTTPXParser {
         if (error instanceof SyntaxError) {
           logger.warn(`Failed to parse httpx JSON line: ${error.message}`);
         } else {
-          logger.error(`Error parsing httpx output: ${error}`);
+          logger.error(`Error parsing httpx output: ${String(error)}`);
         }
       }
     }
@@ -125,7 +126,7 @@ export class HTTPXParser {
 
       return service;
     } catch (error) {
-      logger.error(`Error creating Service from httpx data: ${error}`);
+      logger.error(`Error creating Service from httpx data: ${String(error)}`);
       return null;
     }
   }
@@ -149,8 +150,23 @@ export class DNSXParser {
       }
 
       try {
-        const data = JSON.parse(line);
-        const hostname = data.host ?? '';
+        const rawData = JSON.parse(line);
+
+        // TODO: Move schema to models
+        const data = z
+          .object({
+            host: z.string(),
+            a: z.array(z.string()).optional().default([]),
+            aaaa: z.array(z.string()).optional().default([]),
+            mx: z.array(z.string()).optional().default([]),
+            txt: z.array(z.string()).optional().default([]),
+            ns: z.array(z.string()).optional().default([]),
+            cname: z.array(z.string()).optional().default([]),
+          })
+          .parse(rawData);
+
+        const hostname = data.host;
+
         if (!hostname) {
           continue;
         }
@@ -167,37 +183,27 @@ export class DNSXParser {
           });
         }
 
-        const records = dnsData.get(hostname)!;
+        const records = dnsData.get(hostname);
 
         // Parse different record types
-        if (data.a && Array.isArray(data.a)) {
-          records.a.push(...data.a);
-        }
+        records.a.push(...data.a);
 
-        if (data.aaaa && Array.isArray(data.aaaa)) {
-          records.aaaa.push(...data.aaaa);
-        }
+        records.aaaa.push(...data.aaaa);
 
-        if (data.mx && Array.isArray(data.mx)) {
-          records.mx.push(...data.mx);
-        }
+        records.mx.push(...data.mx);
 
-        if (data.txt && Array.isArray(data.txt)) {
-          records.txt.push(...data.txt);
-        }
+        records.txt.push(...data.txt);
 
-        if (data.ns && Array.isArray(data.ns)) {
-          records.ns.push(...data.ns);
-        }
+        records.ns.push(...data.ns);
 
-        if (data.cname && Array.isArray(data.cname) && data.cname.length > 0) {
+        if (data.cname.length > 0) {
           records.cname = data.cname[0];
         }
       } catch (error) {
         if (error instanceof SyntaxError) {
           logger.warn(`Failed to parse dnsx JSON line: ${error.message}`);
         } else {
-          logger.error(`Error parsing dnsx output: ${error}`);
+          logger.error(`Error parsing dnsx output: ${String(error)}`);
         }
       }
     }
@@ -225,7 +231,18 @@ export class NaabuParser {
       }
 
       try {
-        const data = JSON.parse(line);
+        const rawData = JSON.parse(line);
+
+        // TODO: Improve this schema
+        const data = z
+          .object({
+            host: z.string().optional(),
+            ip: z.string().optional(),
+            port: z.number().optional(),
+            service: z.string().optional(),
+          })
+          .parse(rawData);
+
         const host = data.host ?? data.ip ?? '';
         const port = data.port;
 
@@ -244,12 +261,12 @@ export class NaabuParser {
           service: data.service ?? undefined,
         };
 
-        portData.get(host)!.push(portResult);
+        portData.get(host).push(portResult);
       } catch (error) {
         if (error instanceof SyntaxError) {
           logger.warn(`Failed to parse naabu JSON line: ${error.message}`);
         } else {
-          logger.error(`Error parsing naabu output: ${error}`);
+          logger.error(`Error parsing naabu output: ${String(error)}`);
         }
       }
     }
@@ -289,8 +306,20 @@ export class KatanaParser {
       }
 
       try {
-        const data = JSON.parse(line);
-        const url = data.endpoint ?? data.url ?? '';
+        const rawData = JSON.parse(line);
+
+        const data = z
+          .object({
+            endpoint: z.string().optional(),
+            url: z.string().optional(),
+            method: z.string().optional(),
+            source: z.string().optional(),
+            tag: z.string().optional(),
+            attribute: z.string().optional(),
+          })
+          .parse(rawData);
+
+        const url = data.endpoint || data.url;
 
         if (!url) {
           continue;
@@ -298,16 +327,16 @@ export class KatanaParser {
 
         urls.push({
           url,
-          method: data.method ?? undefined,
-          source: data.source ?? undefined,
-          tag: data.tag ?? undefined,
-          attribute: data.attribute ?? undefined,
+          method: data.method,
+          source: data.source,
+          tag: data.tag,
+          attribute: data.attribute,
         });
       } catch (error) {
         if (error instanceof SyntaxError) {
           logger.warn(`Failed to parse katana JSON line: ${error.message}`);
         } else {
-          logger.error(`Error parsing katana output: ${error}`);
+          logger.error(`Error parsing katana output: ${String(error)}`);
         }
       }
     }
