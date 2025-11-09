@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  surface-discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: surface-discovery:latest
+    container_name: surface-discovery
+    volumes:
+      - ./output:/output
+    environment:
+      - NODE_ENV=production
+    # Example usage:
+    # command: ["--url", "example.com", "--output", "/output/results.json", "--depth", "normal"]
+
+    # Network configuration for naabu (port scanning)
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+    # Resource limits
+    mem_limit: 2g
+    cpus: 2.0
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
