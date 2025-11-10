@@ -1,22 +1,28 @@
 # TODO
 
-- [ ] Add crawlee to perform deep link discovery on single page apps and other web applications.
-- [ ] Test authenticated scans
-- [ ] If the input is a subdomain instead of a root domain, add a flag to only scan the subdomain.
-- [ ] Improve authenticated scans so that any new urls (in the domain or not) are further discovered with the authentication method.
-- [ ] Add a way to use a VPN or other access methods to access a "private" network. Suggest a list of most common access methods I should implement.
-- [ ] Group endpoints by subdomain
-- [ ] APIfication of the project.
-  - [ ] Expose an endpoint to scan a url.
-  - [ ] Stream results to a web socket.
-- [x] Add a flag to the results, identifying if the url is publicly accessible or requires authentication.
-- [ ] Add `-nmap-cli` to naabu?
-- [ ] Add rate limiting
-- [ ] Remove nuclei scanning from the project.
-- [ ] Add progressive saving and the ability to resume from a saved state.
-- [ ] Add queueing system?
-- [ ] Add a grooming step:
-  - [ ] Separate javascript files and other files from the found urls
-- [ ] Scan javascript files for sensitive data. Research tools to do this.
-- [ ] Use uv for package management
-<!-- - [ ] Store metadata for the url, such as path params, query params, etc. -->
+## Features
+- [ ] Add crawlee/playwright for deep link discovery on SPAs and web applications
+- [ ] Test authenticated scans with real targets
+- [ ] Improve authenticated discovery: discover new URLs found during auth crawling
+- [ ] Group endpoints by subdomain in output
+- [ ] Add rate limiting for API requests
+- [ ] Add progressive saving and resume capability (Zod validation for state)
+- [ ] Add TypeScript queue system for parallel operations
+
+## Scanning Options
+- [ ] Add flag to scan only a specific subdomain (not full root domain)
+- [ ] Add VPN/private network access methods support
+
+## Output Enhancements
+- [ ] Add grooming step: separate JavaScript files from URLs
+- [ ] Scan JavaScript files for sensitive data (research Node.js tools)
+- [x] Flag URLs as public vs authentication-required
+
+## API/Integration
+- [ ] APIfication: Expose scan endpoint
+- [ ] Stream results via WebSocket
+- [ ] Add nmap-cli output format for naabu?
+
+## Completed/Removed
+- [x] Remove nuclei scanning (REMOVED in Node.js version)
+- [x] Use modern package manager (using pnpm, Python used uv)
