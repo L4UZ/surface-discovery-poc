@@ -11,8 +11,8 @@ docker build -t surface-discovery .
 ```
 
 This builds a multi-stage image that includes:
-- All Go-based security tools (subfinder, httpx, nuclei, etc.)
-- Python runtime and dependencies
+- All Go-based security tools (subfinder, httpx, naabu, katana, dnsx)
+- Node.js 20+ runtime and dependencies
 - Configured non-root user
 - Network capabilities for port scanning
 
@@ -123,7 +123,7 @@ docker run --rm \
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OUTPUT_FILE` | `/output/discovery_results.json` | Default output file path |
-| `PYTHONUNBUFFERED` | `1` | Disable Python output buffering |
+| `NODE_ENV` | `production` | Node.js environment mode |
 
 Example:
 ```bash
@@ -324,7 +324,7 @@ DOCKER_BUILDKIT=1 docker build -t surface-discovery .
 ### Layer Caching
 The Dockerfile is optimized for layer caching:
 1. Go tools (changes rarely)
-2. Python requirements (changes occasionally)
+2. Node.js dependencies (changes occasionally)
 3. Application code (changes frequently)
 
 ### Multi-Architecture Build
@@ -366,7 +366,7 @@ docker run --rm -v $(pwd)/results:/output \
 Add to `docker-compose.yml`:
 ```yaml
 healthcheck:
-  test: ["CMD", "python", "cli.py", "--check-tools"]
+  test: ["CMD", "node", "dist/cli.js", "--check-tools"]
   interval: 30s
   timeout: 10s
   retries: 3
