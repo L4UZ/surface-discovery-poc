@@ -147,7 +147,7 @@ docker run --rm \
 ### Configuration Files (Optional)
 ```bash
 # Mount custom config
--v $(pwd)/custom_config.py:/app/discovery/config.py
+-v $(pwd)/custom_config.ts:/app/src/config.ts
 ```
 
 ## Network Configuration

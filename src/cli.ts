@@ -127,14 +127,14 @@ async function main(): Promise<void> {
   // TODO: Move schema to models
   const options = z
     .object({
-      url: z.string().url(),
+      url: z.string().url().optional(),
       output: z.string().optional(),
       depth: z.enum(['shallow', 'normal', 'deep']).optional(),
       timeout: z.number().optional(),
       parallel: z.number().optional(),
       verbose: z.boolean().optional(),
       checkTools: z.boolean().optional(),
-      // authConfig: z.string().optional(),
+      authConfig: z.string().optional(),
     })
     .parse(program.opts());
 

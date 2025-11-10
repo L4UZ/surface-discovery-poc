@@ -1,5 +1,10 @@
 # Authenticated Scanning Guide
 
+> ⚠️ **NOTE**: This document is pending update for the Node.js implementation. Examples currently show Python CLI commands and YAML configuration. The Node.js version uses:
+> - CLI: `node dist/cli.js --auth-config config.json` (not `python cli.py --auth-config config.yaml`)
+> - Config format: JSON (not YAML)
+> - Full update in progress.
+
 This guide explains how to configure and run authenticated discovery scans to access protected areas of your target application.
 
 ## Table of Contents
