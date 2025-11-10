@@ -252,8 +252,8 @@ $ httpx -l subdomains.txt -json
 ### Custom Entrypoint
 ```bash
 # Override entrypoint to run custom commands
-docker run --rm --entrypoint python surface-discovery \
-  -c "from discovery.core import run_discovery; print('Custom script')"
+docker run --rm --entrypoint node surface-discovery \
+  -e "import('./dist/core.js').then(m => { console.log('Custom script'); })"
 ```
 
 ### Build with Custom Tag
