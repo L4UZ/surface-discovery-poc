@@ -27,10 +27,6 @@ export class PassiveDiscovery {
   private config: DiscoveryConfig;
   private runner: ToolRunner;
 
-  /**
-   * Create passive discovery stage
-   * @param config - Discovery configuration
-   */
   constructor(config: DiscoveryConfig) {
     this.config = config;
     this.runner = new ToolRunner(config.subfinderTimeout);

@@ -36,10 +36,6 @@ export class Enrichment {
   private config: DiscoveryConfig;
   private runner: ToolRunner;
 
-  /**
-   * Create enrichment stage
-   * @param config - Discovery configuration
-   */
   constructor(config: DiscoveryConfig) {
     this.config = config;
     this.runner = new ToolRunner(config.dnsxTimeout);

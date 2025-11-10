@@ -35,10 +35,6 @@ export class PortDiscovery {
   private config: DiscoveryConfig;
   private runner: ToolRunner;
 
-  /**
-   * Create port discovery stage
-   * @param config - Discovery configuration
-   */
   constructor(config: DiscoveryConfig) {
     this.config = config;
     this.runner = new ToolRunner(config.naabuTimeout);
@@ -115,7 +111,9 @@ export class PortDiscovery {
 
     try {
       // Run naabu port scan
-      logger.info(`Calling naabu with ${hostsToScan.length} hosts, timeout=${this.config.naabuTimeout}s`);
+      logger.info(
+        `Calling naabu with ${hostsToScan.length} hosts, timeout=${this.config.naabuTimeout}s`
+      );
       const output = await this.runner.runNaabu(
         hostsToScan,
         portConfig.ports,
@@ -188,9 +186,7 @@ export class PortDiscovery {
         );
         return { topPorts: 10000, rate: 3000 };
       } else {
-        logger.info(
-          `Deep scan with ${hostCount} hosts: using full port range (65535)`
-        );
+        logger.info(`Deep scan with ${hostCount} hosts: using full port range (65535)`);
         return { ports: '-', rate: 3000 };
       }
     } else {

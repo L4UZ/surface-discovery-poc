@@ -26,10 +26,6 @@ export class ActiveDiscovery {
   private config: DiscoveryConfig;
   private runner: ToolRunner;
 
-  /**
-   * Create active discovery stage
-   * @param config - Discovery configuration
-   */
   constructor(config: DiscoveryConfig) {
     this.config = config;
     this.runner = new ToolRunner(config.httpxTimeout);

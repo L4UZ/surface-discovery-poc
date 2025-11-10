@@ -27,10 +27,6 @@ export class AuthenticatedDiscovery {
   private config: DiscoveryConfig;
   private runner: ToolRunner;
 
-  /**
-   * Create authenticated discovery stage
-   * @param config - Discovery configuration
-   */
   constructor(config: DiscoveryConfig) {
     this.config = config;
     this.runner = new ToolRunner(config.katanaTimeout);

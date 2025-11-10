@@ -43,10 +43,6 @@ export class ToolRunner {
   private timeout: number;
   private requiredTools: Set<string>;
 
-  /**
-   * Create a new ToolRunner
-   * @param timeout - Default timeout in seconds for tool execution
-   */
   constructor(timeout: number = 300) {
     this.timeout = timeout;
     this.requiredTools = new Set(['subfinder', 'httpx', 'katana', 'dnsx', 'naabu']);

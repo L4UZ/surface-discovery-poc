@@ -30,10 +30,6 @@ export class DiscoveryEngine {
   private config: DiscoveryConfig;
   private result: DiscoveryResult | null = null;
 
-  /**
-   * Create discovery engine
-   * @param config - Discovery configuration (uses default if not provided)
-   */
   constructor(config?: DiscoveryConfig) {
     this.config = config ?? getConfig();
   }
