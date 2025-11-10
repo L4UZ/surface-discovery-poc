@@ -1,210 +1,327 @@
 # Quick Start Guide
 
+Get started with Surface Discovery in 5 minutes.
+
+## Prerequisites
+
+- **Node.js 20+** - JavaScript runtime
+- **pnpm** - Fast package manager (`npm install -g pnpm`)
+- **External Tools** - ProjectDiscovery security tools
+
 ## Installation
 
 ### 1. Install External Tools
 
-Use the automated installation script:
-
 ```bash
-cd surface-discovery
+# Automated installation (recommended)
 ./scripts/install-tools.sh
 ```
 
-This script will:
-- Check if Go is installed
-- Install all required ProjectDiscovery tools (subfinder, httpx, nuclei, katana, dnsx, naabu)
-- Set up network capabilities for naabu (Linux only)
-- Verify all installations
-- Add `~/go/bin` to your PATH if needed
+This installs:
+- subfinder (subdomain enumeration)
+- httpx (HTTP probing)
+- naabu (port scanning)
+- katana (web crawling)
+- dnsx (DNS resolution)
 
-### 2. Setup Python Environment
+### 2. Install Node.js Dependencies
 
 ```bash
-cd surface-discovery
-
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Sync dependencies and create virtual environment
-uv sync
-
-# Activate the virtual environment
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pnpm install
 ```
 
 ### 3. Verify Installation
 
 ```bash
-uv run python cli.py --check-tools
+pnpm dev --check-tools
 ```
 
-You should see all tools marked as "✓ Installed".
+You should see all 5 tools detected:
+```
+✓ subfinder
+✓ httpx
+✓ katana
+✓ dnsx
+✓ naabu
+```
 
 ## Basic Usage
 
-### Simple Discovery
+### Development Mode (Quick Testing)
 
 ```bash
-uv run python cli.py --url example.com
+# Basic scan
+pnpm dev --url https://example.com
+
+# Shallow scan (faster, less comprehensive)
+pnpm dev --url https://example.com --depth shallow
+
+# Deep scan (slower, more comprehensive)
+pnpm dev --url https://example.com --depth deep --verbose
 ```
 
-This will:
-- Discover subdomains
-- Collect DNS records
-- Save results to `discovery_example_com.json`
-
-### Custom Output File
+### Production Mode
 
 ```bash
-uv run python cli.py --url example.com --output my_results.json
+# Build TypeScript to JavaScript
+pnpm build
+
+# Run discovery
+pnpm start -- --url https://example.com --output results.json
 ```
 
-### Deep Discovery
+## Common Use Cases
+
+### Quick Reconnaissance
+
+For rapid initial assessment (30-60 seconds):
 
 ```bash
-uv run python cli.py --url example.com --depth deep --verbose
+pnpm dev --url https://target.com --depth shallow
 ```
 
-This enables:
-- More thorough subdomain enumeration
-- Extended timeouts
-- Detailed logging
+This performs:
+- Subdomain enumeration (limit: 20)
+- Port scanning (top 100 ports)
+- HTTP probing
+- Basic crawling (depth: 2)
 
-## Discovery Depth Levels
+### Standard Discovery
 
-| Level | Timeout | Max Subdomains | Crawl Services | Use Case |
-|-------|---------|----------------|----------------|----------|
-| **shallow** | 5 min | 20 | 3 | Quick reconnaissance |
-| **normal** | 10 min | unlimited | 10 | Balanced discovery |
-| **deep** | 15 min | unlimited | 20 | Comprehensive analysis |
+For balanced coverage (3-10 minutes):
 
-## Example Commands
-
-### Quick Test
 ```bash
-# Test with example.com (minimal surface)
-uv run python cli.py --url example.com --depth shallow
+pnpm dev --url https://target.com --depth normal --verbose
 ```
 
-### Vulnerable Test Target
+This performs:
+- Full subdomain enumeration
+- Port scanning (top 1000 ports)
+- HTTP probing with technology detection
+- Web crawling (depth: 3)
+- Infrastructure intelligence
+
+### Comprehensive Discovery
+
+For thorough reconnaissance (10-15 minutes):
+
 ```bash
-# Test with intentionally vulnerable site (requires permission!)
-uv run python cli.py --url testphp.vulnweb.com --depth normal --verbose
+pnpm dev --url https://target.com --depth deep --verbose --timeout 900
 ```
 
-### Custom Configuration
+This performs:
+- Unlimited subdomain enumeration
+- Full port scan (all 65535 ports)
+- HTTP probing with full headers
+- Deep web crawling (depth: 5)
+- Complete infrastructure analysis
+
+## Docker Usage
+
+### Quick Docker Run
+
 ```bash
-# Override specific settings
-uv run python cli.py \
-  --url example.com \
-  --depth normal \
-  --timeout 900 \
-  --parallel 15 \
-  --output results/scan_001.json \
-  --verbose
+# Build image (one-time)
+docker build -t surface-discovery .
+
+# Run scan
+docker run --rm \
+  -v $(pwd)/results:/output \
+  surface-discovery --url example.com
 ```
 
-## Understanding the Output
+### With Port Scanning
 
-The output JSON file contains:
+Port scanning requires elevated network capabilities:
+
+```bash
+docker run --rm \
+  --cap-add=NET_RAW \
+  --cap-add=NET_ADMIN \
+  -v $(pwd)/results:/output \
+  surface-discovery --url example.com --depth deep
+```
+
+## Understanding Output
+
+Discovery results are saved as JSON files with:
 
 ### Metadata
-- Scan ID, timestamps, duration
-- Tool versions used
-- Discovery depth level
+```json
+{
+  "metadata": {
+    "target": "example.com",
+    "scanId": "uuid",
+    "startTime": "2024-01-01T00:00:00Z",
+    "durationSeconds": 180,
+    "status": "completed"
+  }
+}
+```
 
-### Domains
-- Root domain information
-- Discovered subdomains with IPs
-- DNS records (A, AAAA, MX, TXT, etc.)
-- WHOIS data
+### Domains & Subdomains
+```json
+{
+  "domains": {
+    "rootDomain": "example.com",
+    "subdomains": [
+      {
+        "name": "api.example.com",
+        "ips": ["1.2.3.4"],
+        "status": "live",
+        "openPorts": [80, 443]
+      }
+    ]
+  }
+}
+```
 
-### Services (planned)
-- Live HTTP/HTTPS services
-- Technology stack detection
-- Security headers analysis
+### Services
+```json
+{
+  "services": [
+    {
+      "url": "https://api.example.com",
+      "statusCode": 200,
+      "technologies": [
+        {"name": "nginx", "version": "1.21.0"}
+      ]
+    }
+  ]
+}
+```
 
-### Findings (planned)
-- Security misconfigurations
-- Vulnerable components
-- Sensitive file exposures
+### Endpoints
+```json
+{
+  "endpoints": [
+    {
+      "url": "https://api.example.com/api/users",
+      "method": "GET",
+      "discoveredVia": "crawl"
+    }
+  ]
+}
+```
 
-### Recommendations
-- Pentest focus areas
-- Risk-prioritized targets
+## Development Workflow
 
-## Current Implementation Status
+### Check Code Quality
 
-✅ **Implemented (Core Components)**:
-- Project structure and configuration
-- Subprocess runner for tools
-- Pydantic data models
-- Tool output parsers
-- Passive discovery stage (subdomains, DNS, WHOIS)
-- Core orchestration engine
-- CLI interface
+```bash
+# Type check
+pnpm typecheck
 
-⏳ **Planned (Future Phases)**:
-- Active discovery (HTTP probing, port scanning)
-- Deep discovery (web crawling, JS analysis)
-- Enrichment (CVE mapping, risk scoring)
-- Comprehensive reporting
+# Lint code
+pnpm lint
+
+# Format code
+pnpm format
+```
+
+### Run Tests
+
+```bash
+# Run all tests
+pnpm test
+
+# Run with coverage
+pnpm test:coverage
+
+# Watch mode (during development)
+pnpm test:watch
+```
+
+## CLI Options Reference
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--url <url>` | Target URL (required) | - |
+| `--output <path>` | Output file path | Auto-generated |
+| `--depth <level>` | shallow\|normal\|deep | normal |
+| `--timeout <seconds>` | Max execution time | 1800 |
+| `--parallel <number>` | Concurrent operations | 10 |
+| `--verbose` | Enable verbose logging | false |
+| `--check-tools` | Verify tool installation | - |
+| `--auth-mode` | Enable authenticated scan | false |
+| `--auth-config <path>` | Auth config JSON file | - |
 
 ## Troubleshooting
 
-### "Tool not found" errors
+### Tools Not Found
 
-Ensure Go tools are in your PATH:
+If `--check-tools` shows missing tools:
+
 ```bash
-which subfinder  # Should show path to binary
-export PATH=$PATH:~/go/bin
+# Reinstall tools
+./scripts/install-tools.sh
+
+# Verify PATH
+echo $PATH | grep -q go/bin && echo "Go bin in PATH" || echo "Add ~/go/bin to PATH"
 ```
 
-### Python module errors
+### Build Errors
 
-Sync dependencies with uv:
 ```bash
-uv sync
-source .venv/bin/activate
+# Clean build
+rm -rf dist/
+pnpm build
+
+# Check TypeScript
+pnpm typecheck
 ```
 
-### Permission errors
+### Port Scanning Fails
 
-Some tools may require elevated permissions for port scanning:
+Port scanning requires elevated privileges:
+
 ```bash
-# On Linux/Mac, may need sudo for naabu
-sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which naabu)
+# Local: Run as root (not recommended)
+sudo pnpm start -- --url example.com
+
+# Docker: Use capabilities flags
+docker run --cap-add=NET_RAW --cap-add=NET_ADMIN ...
 ```
 
 ## Next Steps
 
-1. **Test the PoC**: Run discovery against known safe targets
-2. **Extend Active Discovery**: Implement HTTP probing stage (discovery/stages/active.py)
-3. **Add Deep Discovery**: Implement web crawling stage (discovery/stages/deep.py)
-4. **Implement Enrichment**: Add CVE mapping and risk scoring (discovery/stages/enrichment.py)
-5. **Enhance Output**: Generate pentest recommendations
+- **Authentication**: See [AUTHENTICATED_SCAN.md](./AUTHENTICATED_SCAN.md) for authenticated scanning
+- **Docker**: See [DOCKER.md](./DOCKER.md) for advanced Docker usage
+- **Installation**: See [INSTALLATION.md](./INSTALLATION.md) for detailed setup
 
-## Development
+## Performance Tips
 
-### Running Tests (when implemented)
+1. **Adjust Depth**: Use `shallow` for quick checks, `deep` for thorough scans
+2. **Increase Parallelism**: Use `--parallel 15` for faster scans (if system supports it)
+3. **Set Timeouts**: Use `--timeout 600` to limit long-running scans
+4. **Filter Subdomains**: Focus on specific subdomains if too many are discovered
+
+## Common Patterns
+
+### CI/CD Integration
+
 ```bash
-uv run pytest tests/ -v
+#!/bin/bash
+pnpm build
+pnpm start -- \
+  --url https://staging.example.com \
+  --depth shallow \
+  --output ci-scan-$(date +%Y%m%d).json
 ```
 
-### Code Formatting
+### Scheduled Scans
+
 ```bash
-uv run black discovery/ tests/
+# Cron: Daily deep scan at 2 AM
+0 2 * * * cd /path/to/surface-discovery && pnpm start -- --url target.com --depth deep
 ```
 
-### Type Checking
+### Multiple Targets
+
 ```bash
-uv run mypy discovery/
+#!/bin/bash
+TARGETS=("example.com" "test.com" "demo.com")
+for target in "${TARGETS[@]}"; do
+  pnpm start -- --url "https://$target" --output "$target-$(date +%Y%m%d).json"
+done
 ```
-
-## Support
-
-For issues or questions:
-- Review logs with `--verbose` flag
-- Check tool installation with `--check-tools`
-- Examine example output in `examples/example_output.json`

@@ -8,47 +8,94 @@ Surface Discovery performs comprehensive reconnaissance on web targets, gatherin
 - **Domain & Infrastructure**: Subdomain enumeration, DNS mapping, WHOIS data, port scanning
 - **Service & Technology**: Live service detection, technology fingerprinting, security headers
 - **Web Application**: Endpoint discovery, API mapping, form detection
-- **Intelligence & Enrichment**: CVE mapping, risk scoring, pentest recommendations
+- **Intelligence & Enrichment**: Cloud provider detection, CDN identification, ASN mapping
 
 ## Features
 
 ### Discovery Pipeline Stages
 
 1. **Stage 1: Passive Discovery** - Subdomain enumeration via subfinder
-2. **Stage 1.5: Port Discovery** - Network port scanning with naabu (NEW)
+2. **Stage 1.5: Port Discovery** - Network port scanning with naabu
    - Depth-based scanning: shallow (100 ports), normal (1000 ports), deep (all 65535 ports)
    - Configurable scan rate and timeouts
    - Automatic service detection
 3. **Stage 2: Active Discovery** - HTTP/HTTPS probing and technology detection
 4. **Stage 3: Deep Discovery** - Web crawling and endpoint enumeration
 5. **Stage 4: Enrichment** - Infrastructure intelligence (cloud providers, CDN, ASN)
-6. **Stage 5: Vulnerability Scanning** - Template-based security scanning with nuclei
+6. **Stage 5: Authenticated Discovery** - Session-based authenticated crawling
+
+> **Note**: Nuclei vulnerability scanning has been removed from this version.
 
 ## Installation
 
-### Option 1: Docker (Recommended)
+### Prerequisites
 
-**Fastest and easiest** - all dependencies bundled in a single container:
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- External security tools (automated installation available)
+
+### Install External Tools
 
 ```bash
-# Build the image
-docker build -t surface-discovery .
-
-# Run discovery (basic - without port scanning)
-docker run --rm -v $(pwd)/results:/output surface-discovery example.com
-
-# Run with port scanning (requires network capabilities)
-docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  -v $(pwd)/results:/output \
-  surface-discovery example.com
-
-# With options
-docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  -v $(pwd)/results:/output \
-  surface-discovery example.com --depth deep --verbose
+# Automated installation script
+./scripts/install-tools.sh
 ```
 
-**Note:** Port scanning requires `--cap-add=NET_RAW` and `--cap-add=NET_ADMIN` flags for raw socket access. Without these flags, Stage 1.5 (Port Discovery) will be skipped.
+This installs all required ProjectDiscovery tools:
+- subfinder (subdomain enumeration)
+- httpx (HTTP probing)
+- naabu (port scanning)
+- katana (web crawling)
+- dnsx (DNS resolution)
+
+### Install Node.js Dependencies
+
+```bash
+# Install dependencies
+pnpm install
+
+# Verify installation
+pnpm dev --check-tools
+```
+
+## Usage
+
+### Development Mode
+
+```bash
+# Basic scan
+pnpm dev --url https://example.com
+
+# With options
+pnpm dev --url https://example.com --depth deep --verbose
+```
+
+### Production Mode
+
+```bash
+# Build first
+pnpm build
+
+# Run discovery
+pnpm start -- --url https://example.com --output results.json
+```
+
+### Docker Usage
+
+**Basic discovery (without port scanning):**
+```bash
+docker build -t surface-discovery .
+docker run --rm -v $(pwd)/results:/output surface-discovery --url example.com
+```
+
+**With port scanning (requires network capabilities):**
+```bash
+docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
+  -v $(pwd)/results:/output \
+  surface-discovery --url example.com --depth deep
+```
+
+**Note:** Port scanning requires `--cap-add=NET_RAW` and `--cap-add=NET_ADMIN` flags for raw socket access.
 
 ### Authenticated Scanning
 
@@ -58,109 +105,26 @@ For scanning protected areas with authentication:
 docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e API_TOKEN -e SESSION_ID \
-  surface-discovery example.com \
+  surface-discovery --url example.com \
   --auth-mode \
-  --auth-config /input/auth-config.yaml
+  --auth-config /input/auth-config.json
 ```
 
 See [docs/AUTHENTICATED_SCAN.md](docs/AUTHENTICATED_SCAN.md) for complete authentication guide.
 
-### Documentation
+## CLI Options
 
-- [Docker Usage](DOCKER.md) - Complete Docker documentation
-- [Authenticated Scanning](docs/AUTHENTICATED_SCAN.md) - Authentication configuration guide
-- [Example Auth Config](input/strike-auth.yaml) - Authentication file template
-
-### Option 2: Local Installation
-
-#### Prerequisites
-
-Install required external tools using the provided script:
-
-```bash
-# Run the automated installation script
-./scripts/install-tools.sh
-```
-
-This will install all required ProjectDiscovery tools:
-- subfinder (subdomain enumeration)
-- httpx (HTTP probing)
-- nuclei (vulnerability scanning)
-- katana (web crawling)
-- dnsx (DNS resolution)
-- naabu (port scanning)
-
-#### Python Environment
-
-```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Sync dependencies and create virtual environment
-uv sync
-
-# Activate the virtual environment (manual method)
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Or use direnv for automatic activation (recommended)
-brew install direnv  # macOS, or: sudo apt install direnv (Linux)
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc
-direnv allow .
-# Now the venv activates automatically when you cd into the directory!
-```
-
-## Usage
-
-### Docker Usage
-
-Basic discovery (without port scanning):
-```bash
-docker run --rm -v $(pwd)/results:/output surface-discovery example.com
-```
-
-With port scanning enabled:
-```bash
-docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  -v $(pwd)/results:/output \
-  surface-discovery example.com
-```
-
-Advanced options:
-```bash
-docker run --rm --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  -v $(pwd)/results:/output \
-  surface-discovery example.com \
-  --depth deep \
-  --timeout 900 \
-  --parallel 15 \
-  --verbose
-```
-
-Using docker-compose (with port scanning):
-```bash
-docker-compose run --rm \
-  --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  surface-discovery example.com --depth deep
-```
-
-### Local Usage
-
-Basic discovery:
-```bash
-uv run python cli.py --url https://example.com --output results.json
-```
-
-Advanced options:
-```bash
-uv run python cli.py \
-  --url https://example.com \
-  --output results.json \
-  --depth deep \
-  --timeout 900 \
-  --parallel 10 \
-  --verbose
-```
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--url` | Target URL or domain (required) | - |
+| `--output` | Output file path | Auto-generated |
+| `--depth` | Discovery depth: shallow\|normal\|deep | normal |
+| `--timeout` | Maximum execution time (seconds) | 1800 |
+| `--parallel` | Max parallel operations | 10 |
+| `--verbose` | Enable verbose logging | false |
+| `--check-tools` | Verify external tools installation | - |
+| `--auth-mode` | Enable authenticated discovery | false |
+| `--auth-config` | JSON authentication configuration file | - |
 
 ## Output
 
@@ -169,47 +133,80 @@ Results are saved as structured JSON containing:
 - **Open ports and services** (per subdomain/host)
 - Live services and technology stack
 - Web endpoints and API paths
-- Security findings and CVE mappings
-- Pentest focus recommendations
+- Infrastructure intelligence (cloud providers, CDN, ASN)
 - **Statistics**: total ports scanned, open ports found, hosts with open ports
+
+## Development
+
+### Code Quality
+
+```bash
+# Type checking
+pnpm typecheck
+
+# Linting
+pnpm lint
+pnpm lint:fix
+
+# Formatting
+pnpm format
+pnpm format:check
+```
+
+### Testing
+
+```bash
+# Run tests
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+```
 
 ## Architecture
 
 ```
-discovery/
-├── core.py              # Main orchestration engine
+src/
+├── core.ts              # Main orchestration engine
 ├── stages/              # Discovery pipeline stages
-│   ├── passive.py       # Stage 1: Passive reconnaissance
-│   ├── port_discovery.py # Stage 1.5: Port scanning (NEW)
-│   ├── active.py        # Stage 2: Active probing
-│   ├── deep.py          # Stage 3: Deep crawling
-│   ├── enrichment.py    # Stage 4: Analysis & CVE mapping
-│   └── vulnerability.py # Stage 5: Security scanning
+│   ├── passive.ts       # Stage 1: Passive reconnaissance
+│   ├── portDiscovery.ts # Stage 1.5: Port scanning
+│   ├── active.ts        # Stage 2: Active probing
+│   ├── deep.ts          # Stage 3: Deep crawling
+│   ├── enrichment.ts    # Stage 4: Infrastructure intelligence
+│   └── authenticated.ts # Stage 5: Authenticated discovery
 ├── tools/               # Tool integration
-│   ├── runner.py        # Subprocess execution (includes naabu)
-│   └── parsers.py       # Output parsing
-├── models/              # Pydantic data models
-│   ├── domain.py        # Domain/subdomain models (includes PortScanResult)
-│   └── discovery.py     # Main result and statistics models
-└── utils/               # Logging, progress, helpers
+│   ├── runner.ts        # Subprocess execution
+│   └── parsers.ts       # Output parsing
+├── models/              # Zod data models
+│   ├── domain.ts        # Domain/subdomain models
+│   ├── service.ts       # Service detection models
+│   ├── url.ts           # URL discovery models
+│   ├── auth.ts          # Authentication models
+│   └── discovery.ts     # Main result models
+├── utils/               # Utilities
+│   ├── logger.ts        # Winston logging
+│   └── helpers.ts       # Helper functions
+└── cli.ts               # Commander.js CLI interface
 ```
 
-## Development
+## Documentation
 
-Run tests:
-```bash
-uv run pytest tests/
-```
+- [Quick Start Guide](docs/QUICKSTART.md)
+- [Installation Guide](docs/INSTALLATION.md)
+- [Docker Usage](docs/DOCKER.md)
+- [Authenticated Scanning](docs/AUTHENTICATED_SCAN.md)
+- [Docker Quick Reference](docs/DOCKER_QUICKREF.md)
 
-Format code:
-```bash
-uv run black discovery/ tests/
-```
+## Technology Stack
 
-Type checking:
-```bash
-uv run mypy discovery/
-```
+- **Language**: TypeScript (Node.js 20+)
+- **Package Manager**: pnpm
+- **Data Validation**: Zod
+- **CLI Framework**: Commander.js
+- **Logging**: Winston
+- **Browser Automation**: Playwright
+- **Deployment**: Docker
 
 ## License
 

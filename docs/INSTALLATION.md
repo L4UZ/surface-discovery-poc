@@ -6,12 +6,11 @@
 # 1. Install external security tools
 ./scripts/install-tools.sh
 
-# 2. Setup Python environment
-uv sync
+# 2. Install Node.js dependencies
+pnpm install
 
-# 3. Enable auto-activation (optional)
-brew install direnv && echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc
-direnv allow .
+# 3. Verify installation
+pnpm dev --check-tools
 ```
 
 Done! Your environment is ready.
@@ -29,10 +28,9 @@ Done! Your environment is ready.
 This installs all required ProjectDiscovery tools:
 - **subfinder** - Subdomain enumeration
 - **httpx** - HTTP probing
-- **nuclei** - Vulnerability scanning
+- **naabu** - Port scanning
 - **katana** - Web crawling
 - **dnsx** - DNS resolution
-- **naabu** - Port scanning
 
 ### Requirements
 
@@ -47,7 +45,6 @@ If you prefer manual installation:
 ```bash
 go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
 go install -v github.com/projectdiscovery/katana/cmd/katana@latest
 go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
 go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
@@ -58,280 +55,348 @@ export PATH=$PATH:$HOME/go/bin
 
 ---
 
-## Part 2: Python Environment Setup
+## Part 2: Node.js Environment Setup
 
-### Using uv (Recommended)
+### Prerequisites
+
+- **Node.js 20+** - [Download](https://nodejs.org/)
+- **pnpm** - Fast package manager
+
+### Install pnpm
 
 ```bash
-# Install uv (one-time)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Using npm (one-time)
+npm install -g pnpm
 
-# Sync dependencies
-uv sync
+# Or using Homebrew (macOS)
+brew install pnpm
 
-# Run commands
-uv run python cli.py --url example.com
+# Or using Corepack (Node.js 16.13+)
+corepack enable
+corepack prepare pnpm@latest --activate
 ```
 
-### Benefits of uv:
-- ⚡ 10-100x faster than pip
-- 🔒 Reproducible builds with lockfile
-- 🎯 No manual venv management
-- 📦 Modern dependency resolution
-
-### Using pip (Legacy)
+### Install Dependencies
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# Install all project dependencies
+pnpm install
+```
+
+### Benefits of pnpm:
+- ⚡ 2-3x faster than npm
+- 💾 Efficient disk space usage (hardlinks)
+- 🔒 Strict dependency resolution
+- 📦 Monorepo-friendly
+
+---
+
+## Part 3: Verification
+
+### Check Tool Installation
+
+```bash
+pnpm dev --check-tools
+```
+
+Expected output:
+```
+Checking external tools installation...
+✓ subfinder (v2.6.3)
+✓ httpx (v1.3.7)
+✓ katana (v1.0.4)
+✓ dnsx (v1.1.6)
+✓ naabu (v2.2.0)
+
+All required tools are installed!
+```
+
+### Check TypeScript Build
+
+```bash
+# Type check
+pnpm typecheck
+
+# Build
+pnpm build
+```
+
+### Run Test Scan
+
+```bash
+# Quick test
+pnpm dev --url example.com --depth shallow
 ```
 
 ---
 
-## Part 3: Auto-Activation Setup
+## Part 4: Development Setup
 
-Enable automatic virtual environment activation using `direnv`:
+### Code Quality Tools
 
-### Install direnv
+The project includes:
+- **TypeScript** - Type-safe JavaScript
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **Vitest** - Unit testing
 
-```bash
-# macOS
-brew install direnv
-
-# Linux (Ubuntu/Debian)
-sudo apt install direnv
-
-# Linux (Fedora/RHEL)
-sudo dnf install direnv
-```
-
-### Configure your shell
+### Common Commands
 
 ```bash
-# For zsh (macOS default)
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-source ~/.zshrc
+# Development (with hot reload)
+pnpm dev --url example.com
 
-# For bash
-echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
-source ~/.bashrc
-```
+# Production build
+pnpm build
+pnpm start -- --url example.com
 
-### Enable for this project
+# Code quality
+pnpm typecheck  # Type checking
+pnpm lint       # Check for issues
+pnpm lint:fix   # Auto-fix issues
+pnpm format     # Format code
+pnpm format:check # Check formatting
 
-```bash
-direnv allow .
-```
-
-### How it works
-
-When you enter the directory:
-```bash
-cd surface-discovery
-# direnv: loading .envrc
-# direnv: export +VIRTUAL_ENV ~PATH
-
-# Virtual environment is active!
-python cli.py --url example.com
-```
-
-Auto-deactivates when you leave.
-
----
-
-## Verification
-
-### Check installations
-
-```bash
-# External tools
-subfinder -version
-httpx -version
-nuclei -version
-katana -version
-dnsx -version
-naabu -version
-
-# Python environment
-python --version
-which python  # Should show .venv/bin/python
-
-# Run tests
-pytest tests/
-```
-
-### Test the setup
-
-```bash
-# Quick reconnaissance scan
-python cli.py --url example.com --depth shallow
-
-# Check output
-cat discovery_example_com.json
+# Testing
+pnpm test           # Run tests
+pnpm test:coverage  # With coverage
+pnpm test:watch     # Watch mode
 ```
 
 ---
 
-## Common Issues & Solutions
+## Part 5: Docker Installation (Optional)
 
-### "Go not found"
+### Prerequisites
 
-Install Go first:
+- **Docker** - [Get Docker](https://docs.docker.com/get-docker/)
+- **Docker Compose** (usually bundled with Docker)
+
+### Build Docker Image
+
 ```bash
-# macOS
-brew install go
-
-# Linux
-sudo apt-get install golang-go
-
-# Verify
-go version
+docker build -t surface-discovery .
 ```
 
-### "Tools not found in PATH"
+### Run with Docker
 
-Add Go bin directory to PATH:
 ```bash
+# Basic scan
+docker run --rm \
+  -v $(pwd)/results:/output \
+  surface-discovery --url example.com
+
+# With port scanning (requires capabilities)
+docker run --rm \
+  --cap-add=NET_RAW \
+  --cap-add=NET_ADMIN \
+  -v $(pwd)/results:/output \
+  surface-discovery --url example.com
+```
+
+### Using Docker Compose
+
+```bash
+# Run scan
+docker-compose run --rm surface-discovery --url example.com
+
+# With port scanning
+docker-compose run --rm \
+  --cap-add=NET_RAW \
+  --cap-add=NET_ADMIN \
+  surface-discovery --url example.com --depth deep
+```
+
+---
+
+## Troubleshooting
+
+### Issue: Tools not found
+
+**Problem**: `pnpm dev --check-tools` shows missing tools
+
+**Solution**:
+```bash
+# Reinstall tools
+./scripts/install-tools.sh
+
+# Check Go bin in PATH
+echo $PATH | grep go/bin
+
+# If not in PATH, add it
+export PATH=$PATH:$HOME/go/bin
+
+# Make permanent (add to ~/.zshrc or ~/.bashrc)
 echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### "bash version too old" (macOS)
+### Issue: pnpm not found
 
-Install newer bash:
+**Problem**: `command not found: pnpm`
+
+**Solution**:
 ```bash
-brew install bash
-# Script will auto-detect and use it
+# Install pnpm globally
+npm install -g pnpm
+
+# Or use Corepack
+corepack enable
 ```
 
-### "direnv not activating"
+### Issue: Node.js version too old
 
-1. Check if hook is installed:
-   ```bash
-   grep 'direnv hook' ~/.zshrc
-   ```
+**Problem**: `Requires Node.js 20+`
 
-2. If not found, add it:
-   ```bash
-   echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-   source ~/.zshrc
-   ```
-
-3. Allow the directory:
-   ```bash
-   direnv allow .
-   ```
-
-### "Permission denied for naabu" (Linux)
-
-Set network capabilities:
+**Solution**:
 ```bash
+# Install Node.js 20+ from nodejs.org
+# Or use nvm
+nvm install 20
+nvm use 20
+```
+
+### Issue: TypeScript build errors
+
+**Problem**: `pnpm build` fails
+
+**Solution**:
+```bash
+# Clean and rebuild
+rm -rf dist/ node_modules/
+pnpm install
+pnpm build
+
+# Check for type errors
+pnpm typecheck
+```
+
+### Issue: Port scanning fails
+
+**Problem**: `naabu: permission denied`
+
+**Solution**:
+
+**Local (Linux)**:
+```bash
+# Give naabu raw socket capabilities
 sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which naabu)
 ```
 
----
-
-## Custom Configuration
-
-### Environment Variables
-
-Edit `.envrc` to add project-specific variables:
-
+**Docker**:
 ```bash
-# Add to .envrc
-export LOG_LEVEL=DEBUG
-export ENVIRONMENT=development
-export API_TOKEN=your_token
+# Use capabilities flags
+docker run --cap-add=NET_RAW --cap-add=NET_ADMIN ...
 ```
 
-Reload:
+### Issue: Permission errors on output
+
+**Problem**: Cannot write results to output directory
+
+**Solution**:
 ```bash
-direnv allow .
-```
+# Create output directory
+mkdir -p output results
 
-### Discovery Configuration
+# Fix permissions
+chmod 755 output results
 
-Edit `discovery/config.py` or use CLI flags:
-
-```bash
-python cli.py \
-  --url example.com \
-  --depth deep \
-  --timeout 900 \
-  --parallel 15 \
-  --verbose
+# Docker: Use current user
+docker run --user $(id -u):$(id -g) ...
 ```
 
 ---
 
-## Alternative Workflows
+## Advanced Configuration
 
-### Without direnv (manual activation)
+### Custom Tool Paths
 
-```bash
-source .venv/bin/activate
-python cli.py --url example.com
-deactivate
-```
-
-### With uv run (no activation needed)
+If tools are installed in non-standard locations:
 
 ```bash
-uv run python cli.py --url example.com
-uv run pytest tests/
+# Set tool paths in environment
+export SUBFINDER_PATH=/custom/path/subfinder
+export HTTPX_PATH=/custom/path/httpx
+export NAABU_PATH=/custom/path/naabu
+export KATANA_PATH=/custom/path/katana
+export DNSX_PATH=/custom/path/dnsx
 ```
 
-### Docker (no local installation)
+### Performance Tuning
 
 ```bash
-docker build -t surface-discovery .
-docker run --rm -v $(pwd)/results:/output surface-discovery example.com
+# Increase parallelism (if system supports it)
+pnpm start -- --url example.com --parallel 20
+
+# Longer timeout for large scans
+pnpm start -- --url example.com --timeout 3600
+
+# Custom depth configuration
+pnpm start -- --url example.com --depth deep
 ```
+
+### Development with TypeScript Watch Mode
+
+```bash
+# Terminal 1: Watch TypeScript
+pnpm build --watch
+
+# Terminal 2: Run with nodemon
+npx nodemon dist/cli.js --url example.com
+```
+
+---
+
+## Platform-Specific Notes
+
+### macOS
+
+- **Homebrew** recommended for Go installation
+- **Rosetta 2** required for Apple Silicon (M1/M2) if using non-ARM binaries
+- **Gatekeeper** may block unsigned binaries - run `xattr -d com.apple.quarantine $(which naabu)` if needed
+
+### Linux
+
+- **apt/yum** can install Go: `sudo apt install golang-go`
+- **setcap** required for naabu port scanning capabilities
+- **SELinux** may block raw sockets - temporarily disable with `sudo setenforce 0` (for testing only)
+
+### Windows (WSL2 Required)
+
+- **WSL2** (Windows Subsystem for Linux) required
+- Follow Linux installation steps inside WSL2
+- Docker Desktop with WSL2 backend recommended
 
 ---
 
 ## Next Steps
 
-1. ✅ Read [QUICKSTART.md](QUICKSTART.md) for usage examples
-2. ✅ Check [AUTHENTICATED_SCAN.md](AUTHENTICATED_SCAN.md) for auth setup
-3. ✅ Review [DOCKER.md](DOCKER.md) for containerized deployment
-4. ✅ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
+Once installed:
+
+1. **Quick Test**: `pnpm dev --url example.com --depth shallow`
+2. **Read Quick Start**: See [QUICKSTART.md](./QUICKSTART.md)
+3. **Review CLI Options**: See [README.md](../README.md)
+4. **Configure Authentication**: See [AUTHENTICATED_SCAN.md](./AUTHENTICATED_SCAN.md)
+5. **Docker Usage**: See [DOCKER.md](./DOCKER.md)
 
 ---
 
-## Complete Example
+## Uninstallation
+
+### Remove Node.js Dependencies
 
 ```bash
-# Full setup from scratch
-cd ~/repos
-git clone <repo-url>
-cd surface-discovery
-
-# 1. Install Go (if needed)
-brew install go
-
-# 2. Install external tools
-./scripts/install-tools.sh
-
-# 3. Install uv (if needed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 4. Setup Python environment
-uv sync
-
-# 5. Setup auto-activation
-brew install direnv
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-source ~/.zshrc
-direnv allow .
-
-# 6. Test
-cd .. && cd surface-discovery  # Trigger direnv
-python cli.py --url example.com --depth shallow
-
-# 7. Review results
-cat discovery_example_com.json
+rm -rf node_modules/
 ```
 
-Your environment is fully configured! 🎉
+### Remove External Tools
+
+```bash
+rm -f ~/go/bin/{subfinder,httpx,naabu,katana,dnsx}
+```
+
+### Remove Build Artifacts
+
+```bash
+rm -rf dist/ output/ results/
+```
