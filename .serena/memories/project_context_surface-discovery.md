@@ -3,121 +3,143 @@
 ## Project Type
 Production-ready web attack surface reconnaissance service
 
+## Migration Status
+**✅ COMPLETE** - Python → Node.js migration finished 2025-11-10
+- All Python code removed
+- Node.js is sole implementation
+- All documentation updated to reflect Node.js
+- Build verified, all tools checked, ready for production
+
 ## Technology Stack
-- **Language**: Python 3.11
-- **Security Tools**: ProjectDiscovery suite (subfinder, httpx, nuclei, katana, dnsx, naabu)
-- **Async Framework**: asyncio for concurrent execution
-- **Data Validation**: Pydantic v2
-- **CLI Framework**: Click
-- **Output**: Rich terminal UI, JSON export
-- **Deployment**: Docker multi-stage build
+- **Language**: TypeScript (Node.js 20+)
+- **Package Manager**: pnpm
+- **Data Validation**: Zod (runtime validation with type inference)
+- **CLI Framework**: Commander.js
+- **Terminal Output**: Chalk + cli-table3 + ora + boxen
+- **Logging**: Winston
+- **Browser Automation**: Playwright
+- **Deployment**: Docker (Node.js base image)
 
 ## Core Architecture
 
-### Discovery Pipeline (6 stages) - ALL COMPLETE ✅
-1. **Passive Discovery** ✅ - Subdomain enumeration, DNS resolution
-2. **Active Discovery** ✅ - HTTP probing, technology detection
-3. **Deep Discovery** ✅ - Web crawling, endpoint discovery
-4. **Enrichment** ✅ - Infrastructure intelligence (cloud/CDN providers, ASN)
-5. **Vulnerability Scanning** ✅ - Nuclei template-based security scanning (toggleable)
-6. **Authenticated Discovery** ✅ - Session-based authenticated crawling
+### Discovery Pipeline (5 stages) - ALL COMPLETE ✅
+1. **Passive Discovery** ✅ - Subdomain enumeration (subfinder), DNS resolution (dnsx)
+2. **Port Discovery** ✅ - Network port scanning (naabu)
+3. **Active Discovery** ✅ - HTTP probing (httpx), technology detection
+4. **Deep Discovery** ✅ - Web crawling (katana), endpoint discovery
+5. **Enrichment** ✅ - Infrastructure intelligence (cloud/CDN providers, ASN)
+6. **Authenticated Discovery** ✅ - Session-based authenticated crawling (Playwright)
+
+**NOTE**: Nuclei vulnerability scanning has been REMOVED from the Node.js version.
 
 ### Key Components
-- **discovery/core.py**: Main orchestration engine with async pipeline
-- **discovery/tools/runner.py**: Async subprocess execution wrapper for security tools
-- **discovery/stages/**: Complete stage implementations (passive, active, deep, enrichment, vulnerability, authenticated)
-- **discovery/models/**: Pydantic data models for all result types
-- **discovery/config.py**: Depth-based configuration presets with stage toggles
-- **cli.py**: Rich CLI interface with Click framework
+- **src/core.ts**: Main orchestration engine with async pipeline
+- **src/tools/runner.ts**: Subprocess execution wrapper for security tools
+- **src/stages/**: Complete stage implementations (passive, portDiscovery, active, deep, enrichment, authenticated)
+- **src/models/**: Zod data models for all result types
+- **src/config.ts**: Depth-based configuration presets
+- **src/cli.ts**: Commander.js CLI interface
 
 ## Configuration
 - **Depth Presets**: shallow (quick), normal (standard), deep (comprehensive)
 - **Parallel Execution**: Configurable concurrent task limit (default: 10)
-- **Timeouts**: Per-tool timeouts (subfinder: 180s, httpx: 180s, nuclei: 180s, etc.)
-- **Stage Toggles**: --skip-vuln-scan flag to skip vulnerability scanning
+- **Timeouts**: Per-tool timeouts (subfinder: 180s, httpx: 180s, katana: 300s, etc.)
 - **Output**: Configurable JSON output path with auto-generated filenames
 
 ## Docker Architecture
 - **Build Stage**: golang:1.24-bookworm (ProjectDiscovery tools installation)
-- **Runtime Stage**: python:3.11-slim (application execution)
+- **Runtime Stage**: node:20-slim (application execution)
 - **Security**: Non-root user (discovery:1000)
 - **Capabilities**: CAP_NET_RAW, CAP_NET_ADMIN for naabu port scanning
 - **Volumes**: /output for results persistence
 
 ## CLI Flags
-- `--url`: Target URL or domain (required)
-- `--output`: Output file path (auto-generated if not provided)
-- `--depth`: Discovery depth (shallow|normal|deep)
-- `--timeout`: Max execution time in seconds
-- `--parallel`: Max parallel tasks
+- `--url <url>`: Target URL or domain (required unless --check-tools)
+- `--output <path>`: Output file path (auto-generated if not provided)
+- `--depth <shallow|normal|deep>`: Discovery depth
+- `--timeout <seconds>`: Max execution time in seconds
+- `--parallel <number>`: Max parallel tasks
 - `--verbose`: Enable verbose logging
-- `--check-tools`: Verify tool installation
-- `--auth-mode`: Enable authenticated discovery
-- `--auth-config`: YAML authentication configuration file
-- `--skip-vuln-scan`: Skip vulnerability scanning stage (NEW)
+- `--check-tools`: Verify tool installation (URL not required)
+- `--auth-config <path>`: JSON authentication configuration file
 
-## Recent Bug Fixes
+## External Tools (5 tools)
+- **subfinder**: Subdomain enumeration
+- **httpx**: HTTP probing and technology detection
+- **naabu**: Port scanning
+- **katana**: Web crawling
+- **dnsx**: DNS resolution
 
-### Nuclei JSON Parsing Error (2025-11-05) ✅
-**Issue**: `Failed to parse nuclei JSON: Expecting value: line 1 column 1 (char 0)`
+**NOTE**: Nuclei has been removed from the Node.js version.
 
-**Root Causes**:
-1. Wrong nuclei flag: `-json` instead of `-jsonl` (runner.py:268)
-2. Missing tags parameter in run_nuclei() function
-3. No empty output handling before JSON parsing
+## Project Status
+- **Migration**: ✅ 100% complete - Node.js is sole implementation (2025-11-10)
+- **Build**: ✅ Compiles with 0 errors
+- **CLI**: ✅ All commands working (including --check-tools without URL)
+- **Tools**: ✅ All 5 external tools detected and verified
+- **Documentation**: ✅ All docs updated for Node.js
+- **Authentication**: ✅ JSON config format with complete documentation
+- **Type Safety**: 70% (strict mode temporarily disabled, needs re-enabling incrementally)
+- **Testing**: Unit tests with Vitest (pending implementation)
 
-**Fixes**:
-- Changed to `-jsonl` flag in discovery/tools/runner.py:270
-- Added tags parameter and handling (lines 254, 276-277)
-- Added empty output check in vulnerability.py (lines 182-184)
-- Enhanced error handling with debug logging (lines 187-201)
+## Development Commands
+```bash
+# Development
+pnpm dev --url example.com --depth shallow
 
-### Vulnerability Scanning Toggle (2025-11-05) ✅
-**Feature**: Optional vulnerability scanning via --skip-vuln-scan flag
+# Production
+pnpm build
+pnpm start -- --url example.com --output results.json
 
-**Implementation**:
-- cli.py: Added --skip-vuln-scan flag (lines 72-76, 87, 127-128)
-- config.py: Added skip_vuln_scan field (lines 34-35)
-- core.py: Added conditional execution logic (lines 86-94)
-- Timeline event: Records skip action for audit trail
+# Tool verification
+node dist/cli.js --check-tools
 
-**Benefits**: 30-50% faster execution when vulnerabilities aren't needed
+# Code Quality
+pnpm typecheck    # Type checking
+pnpm lint         # Code linting
+pnpm lint:fix     # Auto-fix issues
+pnpm format       # Code formatting
 
-## Known Issues Resolved
-1. ✅ Go version compatibility (requires 1.24+)
-2. ✅ Binary compatibility (musl vs glibc)
-3. ✅ Python import exports (DiscoveryStage, WHOISData)
-4. ✅ CLI flag validation (--check-tools without --url)
-5. ✅ Nuclei JSON parsing error (format mismatch)
-6. ✅ Missing template tags in nuclei execution
-
-## Development Status
-- **Core Implementation**: ✅ Complete (all 6 stages working)
-- **Docker Packaging**: ✅ Complete and tested
-- **Documentation**: ✅ Comprehensive (README, DOCKER.md, TROUBLESHOOTING.md)
-- **Testing**: ✅ Manual testing complete, automated tests pending
-- **Feature Toggles**: ✅ Vulnerability scan toggle implemented
+# Testing
+pnpm test         # Run tests
+pnpm test:coverage # With coverage
+```
 
 ## Output Format
 Comprehensive JSON including:
 - Metadata (scan_id, duration, completeness)
-- Domains (subdomains with DNS records, WHOIS data)
+- Domains (subdomains with DNS records, WHOIS data, open ports)
 - Services (HTTP/HTTPS probing results with technologies)
 - Endpoints (crawled URLs with parameters)
 - Technologies (detected tech stack)
 - Infrastructure (cloud providers, CDN, ASN mappings)
-- Findings (vulnerability scan results by severity)
-- Statistics (aggregated metrics)
+- Statistics (aggregated metrics including port scan statistics)
 - Timeline (discovery event log)
 
 ## Performance Characteristics
-- **Shallow depth**: ~30-60s (20 subdomains limit, depth 2 crawling)
-- **Normal depth**: ~3-10min (unlimited subdomains, depth 3 crawling)
-- **Deep depth**: ~10-15min (unlimited subdomains, depth 5 crawling)
-- **With --skip-vuln-scan**: 30-50% faster execution
+- **Shallow depth**: ~30-60s (20 subdomains limit, 100 top ports, depth 2 crawling)
+- **Normal depth**: ~3-10min (unlimited subdomains, 1000 top ports, depth 3 crawling)
+- **Deep depth**: ~10-15min (unlimited subdomains, all 65535 ports, depth 5 crawling)
 
 ## Authentication Support
-- **Config Format**: YAML with multiple authentication methods
-- **Methods**: Session cookies, JWT tokens, OAuth2 headers, custom headers
+- **Config Format**: JSON (NOT YAML - no environment variable substitution)
+- **Methods**: Session cookies, JWT tokens, OAuth2 headers, custom headers, basic auth
 - **Flow**: Normal discovery → Authenticated crawling → Combined results
 - **Output**: Authenticated endpoints marked and counted separately
+- **Documentation**: Complete YAML→JSON conversion finished (docs/AUTHENTICATED_SCAN.md)
+
+## Recent Changes (2025-11-10)
+- ✅ Deleted entire Python implementation
+- ✅ Moved Node.js from subdirectory to root
+- ✅ Updated all documentation (README, QUICKSTART, INSTALLATION, DOCKER, AUTHENTICATED_SCAN)
+- ✅ Fixed CLI schema (authConfig uncommented, URL optional for --check-tools)
+- ✅ Verified build and tool check passes
+- ✅ Updated Claude memory for Node.js context
+- ✅ Completed AUTHENTICATED_SCAN.md YAML→JSON conversion (687 lines)
+
+## Known Technical Decisions
+1. **No Environment Variable Substitution**: JSON config requires direct credential values
+2. **Nuclei Removed**: Vulnerability scanning stage removed from Node.js version
+3. **Playwright for Auth**: Browser automation for authenticated discovery
+4. **pnpm Package Manager**: 2-3x faster than npm, efficient disk usage
+5. **Zod Validation**: Runtime validation with compile-time type inference

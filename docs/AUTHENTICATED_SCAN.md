@@ -25,10 +25,10 @@ Authenticated discovery mode allows Surface Discovery to crawl protected areas o
 
 ### What Gets Scanned with Authentication?
 
-When `--auth-mode` is enabled, the tool performs:
+When `--auth-config` is provided, the tool performs:
 
 1. **Stage 3: Deep Discovery (Authenticated)** - Crawls authenticated endpoints using provided credentials
-2. **Stage 6: Authenticated Discovery** - Additional authenticated-only surface mapping
+2. **Stage 6: Authenticated Discovery** - Additional authenticated-only surface mapping via Playwright
 3. All other stages run normally with authentication context preserved
 
 ## Authentication Methods
@@ -39,184 +39,220 @@ Surface Discovery supports multiple authentication methods that can be combined:
 
 Common for modern APIs and SPAs:
 
-```yaml
-authentication:
-  - url: "https://api.example.com"
-    headers:
-      Authorization: "Bearer ${API_TOKEN}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://api.example.com",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  ]
+}
 ```
 
 ### 2. Session Cookie Authentication
 
 Standard for traditional web applications:
 
-```yaml
-authentication:
-  - url: "https://app.example.com"
-    cookies:
-      session_id: "${SESSION_ID}"
-      csrf_token: "${CSRF_TOKEN}"
-    headers:
-      X-CSRF-Token: "${CSRF_TOKEN}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://app.example.com",
+      "cookies": {
+        "session_id": "abc123def456",
+        "csrf_token": "xyz789abc123"
+      },
+      "headers": {
+        "X-CSRF-Token": "xyz789abc123"
+      }
+    }
+  ]
+}
 ```
 
 ### 3. Basic Authentication
 
 Legacy HTTP Basic Auth:
 
-```yaml
-authentication:
-  - url: "https://admin.example.com"
-    basic:
-      username: "${ADMIN_USER}"
-      password: "${ADMIN_PASS}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://admin.example.com",
+      "basic": {
+        "username": "admin",
+        "password": "secure-password"
+      }
+    }
+  ]
+}
 ```
 
 ### 4. API Key Authentication
 
 Custom header-based authentication:
 
-```yaml
-authentication:
-  - url: "https://internal.example.com"
-    headers:
-      X-API-Key: "${API_KEY}"
-      X-User-ID: "${USER_ID}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://internal.example.com",
+      "headers": {
+        "X-API-Key": "your-api-key-here",
+        "X-User-ID": "user-123"
+      }
+    }
+  ]
+}
 ```
 
 ### 5. Combined Authentication
 
 Multiple methods for complex scenarios:
 
-```yaml
-authentication:
-  - url: "https://secure.example.com"
-    headers:
-      Authorization: "Bearer ${ACCESS_TOKEN}"
-      X-Request-ID: "surface-discovery"
-    cookies:
-      session: "${SESSION_COOKIE}"
-      preferences: "theme=dark"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://secure.example.com",
+      "headers": {
+        "Authorization": "Bearer token-here",
+        "X-Request-ID": "surface-discovery"
+      },
+      "cookies": {
+        "session": "session-cookie-value",
+        "preferences": "theme=dark"
+      }
+    }
+  ]
+}
 ```
 
 ## Configuration File Format
 
-Authentication configuration uses YAML format with environment variable substitution.
+Authentication configuration uses **JSON format** (not YAML). The Node.js implementation does not support environment variable substitution - credentials must be provided directly in the JSON file.
 
 ### Basic Structure
 
-```yaml
-authentication:
-  - url: "https://target.com"
-    headers: {}      # Optional: Custom headers
-    cookies: {}      # Optional: Authentication cookies
-    basic:           # Optional: Basic auth credentials
-      username: ""
-      password: ""
+```json
+{
+  "authentication": [
+    {
+      "url": "https://target.com",
+      "headers": {},
+      "cookies": {},
+      "basic": {
+        "username": "",
+        "password": ""
+      }
+    }
+  ]
+}
 ```
 
-### Environment Variable Substitution
-
-Use `${VAR_NAME}` or `%{VAR_NAME}` syntax to reference environment variables:
-
-```yaml
-authentication:
-  - url: "https://api.example.com"
-    headers:
-      Authorization: "Bearer ${MY_API_TOKEN}"  # Substituted at runtime
-      X-API-Version: "v2"                      # Literal value
-```
-
-**Before running:**
-```bash
-export MY_API_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-```
+**All fields are optional except `url`:**
+- `headers` - Custom HTTP headers (object)
+- `cookies` - Authentication cookies (object)
+- `basic` - Basic auth credentials (object with `username` and `password`)
 
 ### URL Matching
 
 The parser uses **prefix matching** for URLs:
 
-- Config: `url: "https://app.example.com"`
+- Config: `"url": "https://app.example.com"`
 - Matches:
   - `https://app.example.com/dashboard` ✅
   - `https://app.example.com/api/users` ✅
   - `https://api.example.com/v1/data` ❌ (different subdomain)
 
 For exact matching, specify the full path:
-```yaml
-- url: "https://app.example.com/api/v1"  # Only matches this path
+```json
+{
+  "url": "https://app.example.com/api/v1"
+}
 ```
 
 ### Complete Example Configuration
 
-```yaml
-# auth-config.yaml
-authentication:
-  # Production API with JWT
-  - url: "https://api.example.com"
-    headers:
-      Authorization: "Bearer ${PROD_API_TOKEN}"
-      X-API-Version: "v2"
-      X-Request-ID: "pentest-2024"
-
-  # Web application with session cookies
-  - url: "https://app.example.com"
-    cookies:
-      session_id: "${APP_SESSION_ID}"
-      csrf_token: "${APP_CSRF_TOKEN}"
-      remember_me: "true"
-    headers:
-      X-CSRF-Token: "${APP_CSRF_TOKEN}"
-
-  # Admin panel with basic auth
-  - url: "https://admin.example.com"
-    basic:
-      username: "${ADMIN_USERNAME}"
-      password: "${ADMIN_PASSWORD}"
-
-  # Internal services with API key
-  - url: "https://internal.example.com"
-    headers:
-      X-API-Key: "${INTERNAL_API_KEY}"
-      X-Service-Name: "surface-discovery"
-
-  # Staging environment (multiple methods)
-  - url: "https://staging.example.com"
-    headers:
-      Authorization: "Bearer ${STAGING_TOKEN}"
-    cookies:
-      session: "${STAGING_SESSION}"
-    basic:
-      username: "${STAGING_USER}"
-      password: "${STAGING_PASS}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://api.example.com",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "X-API-Version": "v2",
+        "X-Request-ID": "pentest-2024"
+      }
+    },
+    {
+      "url": "https://app.example.com",
+      "cookies": {
+        "session_id": "abc123def456ghi789",
+        "csrf_token": "xyz789abc123def456",
+        "remember_me": "true"
+      },
+      "headers": {
+        "X-CSRF-Token": "xyz789abc123def456"
+      }
+    },
+    {
+      "url": "https://admin.example.com",
+      "basic": {
+        "username": "admin",
+        "password": "admin-password"
+      }
+    },
+    {
+      "url": "https://internal.example.com",
+      "headers": {
+        "X-API-Key": "internal-api-key-12345",
+        "X-Service-Name": "surface-discovery"
+      }
+    },
+    {
+      "url": "https://staging.example.com",
+      "headers": {
+        "Authorization": "Bearer staging-token"
+      },
+      "cookies": {
+        "session": "staging-session-id"
+      },
+      "basic": {
+        "username": "staging-user",
+        "password": "staging-pass"
+      }
+    }
+  ]
+}
 ```
 
 ## Docker Usage
 
 ### Step 1: Create Authentication Config
 
-Save your auth configuration to `input/auth-config.yaml`:
+Save your auth configuration to `input/auth-config.json`:
 
-```yaml
-authentication:
-  - url: "https://example.com"
-    headers:
-      Authorization: "Bearer ${API_TOKEN}"
-    cookies:
-      session: "${SESSION_ID}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://example.com",
+      "headers": {
+        "Authorization": "Bearer your-jwt-token-here"
+      },
+      "cookies": {
+        "session": "your-session-cookie"
+      }
+    }
+  ]
+}
 ```
 
-### Step 2: Set Environment Variables
-
-Export your credentials:
-
-```bash
-export API_TOKEN="your-jwt-token-here"
-export SESSION_ID="your-session-cookie"
-export CSRF_TOKEN="your-csrf-token"
-```
-
-### Step 3: Run Authenticated Scan
+### Step 2: Run Authenticated Scan
 
 **Basic authenticated scan:**
 
@@ -225,12 +261,9 @@ docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e API_TOKEN \
-  -e SESSION_ID \
   surface-discovery:latest \
   --url https://example.com \
-  --auth-mode \
-  --auth-config /input/auth-config.yaml \
+  --auth-config /input/auth-config.json \
   --output /output/results.json
 ```
 
@@ -241,16 +274,12 @@ docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e API_TOKEN \
-  -e SESSION_ID \
-  -e CSRF_TOKEN \
   surface-discovery:latest \
   --url https://example.com \
   --depth deep \
   --timeout 900 \
   --parallel 15 \
-  --auth-mode \
-  --auth-config /input/auth-config.yaml \
+  --auth-config /input/auth-config.json \
   --output /output/auth-scan.json \
   --verbose
 ```
@@ -259,62 +288,51 @@ docker run --rm \
 
 - `-v $(pwd)/input:/input` - Mount local `input/` directory to container's `/input`
 - `-v $(pwd)/output:/output` - Mount local `output/` directory for results
-- Auth config path inside container: `/input/auth-config.yaml`
-
-### Environment Variable Passing
-
-Pass each credential individually:
-
-```bash
--e VAR_NAME              # Pass variable from host environment
--e VAR_NAME=value        # Set variable explicitly
-```
-
-**Example with multiple variables:**
-
-```bash
-docker run --rm \
-  --cap-add=NET_RAW --cap-add=NET_ADMIN \
-  -v $(pwd)/input:/input \
-  -v $(pwd)/output:/output \
-  -e API_TOKEN \
-  -e SESSION_ID \
-  -e CSRF_TOKEN \
-  -e ADMIN_USER \
-  -e ADMIN_PASS \
-  surface-discovery:latest \
-  --url https://example.com \
-  --auth-mode \
-  --auth-config /input/auth-config.yaml
-```
+- Auth config path inside container: `/input/auth-config.json`
 
 ## Local Usage
 
 ### Step 1: Create Authentication Config
 
-Create `config/auth.yaml`:
+Create `config/auth.json`:
 
-```yaml
-authentication:
-  - url: "https://example.com"
-    headers:
-      Authorization: "Bearer ${API_TOKEN}"
+```json
+{
+  "authentication": [
+    {
+      "url": "https://example.com",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      }
+    }
+  ]
+}
 ```
 
-### Step 2: Set Environment Variables
+### Step 2: Run Local Scan
 
+**Development mode (TypeScript):**
 ```bash
-export API_TOKEN="your-token-here"
-export SESSION_ID="your-session"
+pnpm dev --url https://example.com \
+  --auth-config config/auth.json \
+  --output results.json \
+  --depth normal \
+  --verbose
 ```
 
-### Step 3: Run Local Scan
-
+**Production mode (compiled):**
 ```bash
-python cli.py \
-  --url https://example.com \
-  --auth-mode \
-  --auth-config config/auth.yaml \
+pnpm start -- --url https://example.com \
+  --auth-config config/auth.json \
+  --output results.json \
+  --depth normal \
+  --verbose
+```
+
+**Direct Node.js:**
+```bash
+node dist/cli.js --url https://example.com \
+  --auth-config config/auth.json \
   --output results.json \
   --depth normal \
   --verbose
@@ -322,17 +340,19 @@ python cli.py \
 
 ## Security Best Practices
 
-### 1. Environment Variables
+### 1. Credential Storage
 
 ✅ **DO:**
-- Use environment variables for all sensitive credentials
-- Use meaningful variable names (e.g., `PROD_API_TOKEN`, not `TOKEN1`)
-- Document required variables in README or deployment docs
+- Store auth config files outside version control
+- Use secure file locations (encrypted volumes, secure directories)
+- Set restrictive file permissions (`chmod 600 auth-config.json`)
+- Delete or sanitize configs after testing
 
 ❌ **DON'T:**
-- Hardcode credentials directly in YAML files
-- Commit auth files with real credentials to version control
-- Share environment variables in chat/email
+- Commit auth configs with real credentials to git
+- Store configs in publicly accessible directories
+- Leave credentials in Docker volumes after testing
+- Share auth files via insecure channels
 
 ### 2. Credential Management
 
@@ -341,38 +361,42 @@ python cli.py \
 - Use read-only or limited-scope credentials when possible
 - Create dedicated test accounts for scanning
 - Set credential expiration timeframes
+- Monitor account activity during scanning
 
 ❌ **DON'T:**
 - Use production admin credentials
 - Reuse personal account credentials
 - Share credentials across multiple tools/teams
+- Grant full admin access to test accounts
 
 ### 3. File Security
 
-✅ **DO:**
-- Add auth config files to `.gitignore`
-- Set restrictive file permissions (`chmod 600 auth-config.yaml`)
-- Store configs in secure locations (encrypted volumes)
-- Delete or sanitize configs after testing
+Add to `.gitignore`:
+```
+# Authentication configs
+config/auth.json
+input/auth-config.json
+**/auth*.json
+*.credentials.json
+```
 
-❌ **DON'T:**
-- Commit auth configs to public repositories
-- Store configs in shared directories
-- Leave credentials in Docker volumes after testing
+Set secure permissions:
+```bash
+chmod 600 config/auth.json
+```
 
 ### 4. Session Cleanup
 
 After scanning, clean up:
 
 ```bash
-# Unset environment variables
-unset API_TOKEN SESSION_ID CSRF_TOKEN ADMIN_USER ADMIN_PASS
-
 # Remove temporary auth files
-rm -f /tmp/auth-*.yaml
+rm -f /tmp/auth-*.json
+rm -f config/auth.json
 
-# Clear shell history if needed (bash)
+# Clear shell history if credentials were typed (bash)
 history -c
+history -w
 ```
 
 ### 5. Scope Limitation
@@ -381,29 +405,32 @@ history -c
 - Create test accounts with minimal necessary permissions
 - Use separate staging/test environments when possible
 - Configure rate limiting for test accounts
-- Monitor account activity during scanning
+- Get proper authorization before scanning production
 
 ❌ **DON'T:**
-- Grant full admin access to test accounts
 - Run authenticated scans against production without approval
 - Disable security controls for testing convenience
+- Use credentials with write/delete permissions
 
 ## Troubleshooting
 
-### Error: "Environment variable 'X' not found"
+### Error: "Failed to parse auth config"
 
-**Cause:** Referenced environment variable is not set.
+**Cause:** Invalid JSON syntax in config file.
 
 **Solution:**
 ```bash
-# Check if variable is set
-echo $API_TOKEN
+# Validate JSON syntax
+node -e "console.log(JSON.parse(require('fs').readFileSync('input/auth-config.json')))"
 
-# Set the variable
-export API_TOKEN="your-token-here"
+# Or use jq
+jq . input/auth-config.json
 
-# Verify it's set
-env | grep API_TOKEN
+# Common issues:
+# - Trailing commas (invalid in JSON)
+# - Missing quotes around keys/values
+# - Single quotes instead of double quotes
+# - Missing closing brackets/braces
 ```
 
 ### Error: "Auth config not found"
@@ -419,23 +446,8 @@ env | grep API_TOKEN
 docker run --rm -v $(pwd)/input:/input surface-discovery ls -la /input/
 
 # For local: Use absolute or relative path
-python cli.py --auth-config /absolute/path/to/auth.yaml
-python cli.py --auth-config ./config/auth.yaml
-```
-
-### Error: "Invalid YAML in auth config"
-
-**Cause:** YAML syntax error in config file.
-
-**Solution:**
-```bash
-# Validate YAML syntax
-python -c "import yaml; yaml.safe_load(open('input/auth-config.yaml'))"
-
-# Common issues:
-# - Missing quotes around values with special characters
-# - Incorrect indentation (use spaces, not tabs)
-# - Missing colons or hyphens
+node dist/cli.js --auth-config /absolute/path/to/auth.json
+node dist/cli.js --auth-config ./config/auth.json
 ```
 
 ### Authentication Not Working
@@ -447,24 +459,38 @@ python -c "import yaml; yaml.safe_load(open('input/auth-config.yaml'))"
 1. **Verify credentials are valid:**
    ```bash
    # Test API token manually
-   curl -H "Authorization: Bearer $API_TOKEN" https://api.example.com/user
+   curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/user
    ```
 
-2. **Check URL matching:**
-   ```yaml
-   # Ensure URL prefix matches your target
-   - url: "https://app.example.com"  # Matches app.example.com/*
-   - url: "https://api.example.com"  # Doesn't match app.example.com
-   ```
-
-3. **Enable verbose logging:**
+2. **Check JSON syntax:**
    ```bash
-   docker run ... --verbose
+   # Validate your JSON
+   jq . config/auth.json
    ```
 
-4. **Verify environment variables in container:**
+3. **Check URL matching:**
+   ```json
+   {
+     "authentication": [
+       {
+         "url": "https://app.example.com"
+       }
+     ]
+   }
+   ```
+   Matches `app.example.com/*` but NOT `api.example.com/*`
+
+4. **Enable verbose logging:**
    ```bash
-   docker run ... -e API_TOKEN env | grep API_TOKEN
+   node dist/cli.js --url https://example.com \
+     --auth-config config/auth.json \
+     --verbose
+   ```
+
+5. **Check file permissions:**
+   ```bash
+   ls -la config/auth.json
+   # Should be readable by current user
    ```
 
 ### Scan Hangs or Times Out
@@ -473,14 +499,48 @@ python -c "import yaml; yaml.safe_load(open('input/auth-config.yaml'))"
 
 **Solution:**
 ```bash
-# Increase timeout
-docker run ... --timeout 1200  # 20 minutes
+# Increase timeout (default is 120 seconds)
+node dist/cli.js --timeout 1200 ...  # 20 minutes
 
 # Reduce crawl depth
-docker run ... --depth shallow
+node dist/cli.js --depth shallow ...
 
 # Limit concurrent requests
-docker run ... --parallel 5
+node dist/cli.js --parallel 5 ...
+```
+
+### Invalid JSON Error
+
+**Problem:** JSON parsing fails with syntax error.
+
+**Common mistakes:**
+
+❌ **Wrong (trailing comma):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://example.com",
+      "headers": {
+        "Authorization": "Bearer token",
+      }
+    },
+  ]
+}
+```
+
+✅ **Correct:**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://example.com",
+      "headers": {
+        "Authorization": "Bearer token"
+      }
+    }
+  ]
+}
 ```
 
 ## Examples
@@ -494,28 +554,30 @@ docker run ... --parallel 5
 2. Open DevTools → Application → Local Storage
 3. Copy JWT token value
 
-**Config (`input/spa-auth.yaml`):**
-```yaml
-authentication:
-  - url: "https://app.example.com"
-    headers:
-      Authorization: "Bearer ${SPA_JWT_TOKEN}"
-      X-Requested-With: "XMLHttpRequest"
+**Config (`input/spa-auth.json`):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://app.example.com",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }
+  ]
+}
 ```
 
 **Run:**
 ```bash
-export SPA_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
 docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e SPA_JWT_TOKEN \
   surface-discovery:latest \
   --url https://app.example.com \
-  --auth-mode \
-  --auth-config /input/spa-auth.yaml \
+  --auth-config /input/spa-auth.json \
   --output /output/spa-scan.json
 ```
 
@@ -528,33 +590,34 @@ docker run --rm \
 2. Open DevTools → Application → Cookies
 3. Copy `PHPSESSID` (or `sessionid`) and `csrftoken` values
 
-**Config (`input/webapp-auth.yaml`):**
-```yaml
-authentication:
-  - url: "https://www.example.com"
-    cookies:
-      PHPSESSID: "${PHP_SESSION}"
-      csrftoken: "${CSRF_TOKEN}"
-    headers:
-      X-CSRFToken: "${CSRF_TOKEN}"
-      Referer: "https://www.example.com"
+**Config (`input/webapp-auth.json`):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://www.example.com",
+      "cookies": {
+        "PHPSESSID": "abc123def456ghi789",
+        "csrftoken": "xyz789abc123def456"
+      },
+      "headers": {
+        "X-CSRFToken": "xyz789abc123def456",
+        "Referer": "https://www.example.com"
+      }
+    }
+  ]
+}
 ```
 
 **Run:**
 ```bash
-export PHP_SESSION="abc123def456ghi789"
-export CSRF_TOKEN="xyz789abc123def456"
-
 docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e PHP_SESSION \
-  -e CSRF_TOKEN \
   surface-discovery:latest \
   --url https://www.example.com \
-  --auth-mode \
-  --auth-config /input/webapp-auth.yaml \
+  --auth-config /input/webapp-auth.json \
   --depth normal \
   --output /output/webapp-scan.json
 ```
@@ -563,58 +626,50 @@ docker run --rm \
 
 **Scenario:** Microservices architecture with different auth per service.
 
-**Config (`input/microservices-auth.yaml`):**
-```yaml
-authentication:
-  # User service - JWT
-  - url: "https://user.api.example.com"
-    headers:
-      Authorization: "Bearer ${USER_SERVICE_TOKEN}"
-      X-Service-Name: "surface-discovery"
-
-  # Payment service - API Key
-  - url: "https://payment.api.example.com"
-    headers:
-      X-API-Key: "${PAYMENT_API_KEY}"
-      X-Merchant-ID: "${MERCHANT_ID}"
-
-  # Admin service - Basic Auth
-  - url: "https://admin.api.example.com"
-    basic:
-      username: "${ADMIN_USER}"
-      password: "${ADMIN_PASS}"
-
-  # Legacy service - Session Cookie
-  - url: "https://legacy.api.example.com"
-    cookies:
-      legacy_session: "${LEGACY_SESSION}"
+**Config (`input/microservices-auth.json`):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://user.api.example.com",
+      "headers": {
+        "Authorization": "Bearer user-service-jwt-token",
+        "X-Service-Name": "surface-discovery"
+      }
+    },
+    {
+      "url": "https://payment.api.example.com",
+      "headers": {
+        "X-API-Key": "payment-api-key-12345",
+        "X-Merchant-ID": "merchant-123"
+      }
+    },
+    {
+      "url": "https://admin.api.example.com",
+      "basic": {
+        "username": "admin",
+        "password": "admin-password"
+      }
+    },
+    {
+      "url": "https://legacy.api.example.com",
+      "cookies": {
+        "legacy_session": "legacy-session-id-xyz"
+      }
+    }
+  ]
+}
 ```
 
 **Run:**
 ```bash
-# Set all credentials
-export USER_SERVICE_TOKEN="jwt-token-here"
-export PAYMENT_API_KEY="api-key-here"
-export MERCHANT_ID="merchant-123"
-export ADMIN_USER="admin"
-export ADMIN_PASS="password"
-export LEGACY_SESSION="legacy-session-id"
-
-# Run scan
 docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e USER_SERVICE_TOKEN \
-  -e PAYMENT_API_KEY \
-  -e MERCHANT_ID \
-  -e ADMIN_USER \
-  -e ADMIN_PASS \
-  -e LEGACY_SESSION \
   surface-discovery:latest \
   --url https://api.example.com \
-  --auth-mode \
-  --auth-config /input/microservices-auth.yaml \
+  --auth-config /input/microservices-auth.json \
   --depth deep \
   --output /output/microservices-scan.json \
   --verbose
@@ -624,64 +679,111 @@ docker run --rm \
 
 **Scenario:** GraphQL API requiring authentication header.
 
-**Config (`input/graphql-auth.yaml`):**
-```yaml
-authentication:
-  - url: "https://graphql.example.com"
-    headers:
-      Authorization: "Bearer ${GRAPHQL_TOKEN}"
-      Content-Type: "application/json"
-      X-Request-ID: "surface-discovery-scan"
+**Config (`input/graphql-auth.json`):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://graphql.example.com",
+      "headers": {
+        "Authorization": "Bearer your-graphql-jwt-token",
+        "Content-Type": "application/json",
+        "X-Request-ID": "surface-discovery-scan"
+      }
+    }
+  ]
+}
 ```
 
 **Run:**
 ```bash
-export GRAPHQL_TOKEN="your-graphql-jwt-token"
-
 docker run --rm \
   --cap-add=NET_RAW --cap-add=NET_ADMIN \
   -v $(pwd)/input:/input \
   -v $(pwd)/output:/output \
-  -e GRAPHQL_TOKEN \
   surface-discovery:latest \
   --url https://graphql.example.com \
-  --auth-mode \
-  --auth-config /input/graphql-auth.yaml \
+  --auth-config /input/graphql-auth.json \
   --output /output/graphql-scan.json
+```
+
+### Example 5: Multiple Environments
+
+**Config (`input/multi-env-auth.json`):**
+```json
+{
+  "authentication": [
+    {
+      "url": "https://staging.example.com",
+      "headers": {
+        "Authorization": "Bearer staging-jwt-token"
+      },
+      "cookies": {
+        "staging_session": "staging-session-id"
+      }
+    },
+    {
+      "url": "https://dev.example.com",
+      "headers": {
+        "Authorization": "Bearer dev-jwt-token"
+      },
+      "cookies": {
+        "dev_session": "dev-session-id"
+      }
+    }
+  ]
+}
 ```
 
 ## Additional Resources
 
 - [Main README](../README.md) - General usage and installation
+- [Quick Start Guide](QUICKSTART.md) - Getting started quickly
 - [Docker Documentation](DOCKER.md) - Detailed Docker usage
-- [Configuration Reference](CONFIGURATION.md) - All configuration options
-- [Output Format](OUTPUT_FORMAT.md) - Understanding scan results
+- [Installation Guide](INSTALLATION.md) - Complete setup instructions
 
 ## Quick Reference
 
 ### Required Flags
 
-- `--auth-mode` - Enable authenticated scanning
-- `--auth-config <path>` - Path to auth configuration file
+- `--url <url>` - Target URL to scan
+- `--auth-config <path>` - Path to JSON authentication configuration file
 
 ### Optional Flags (Recommended)
 
 - `--depth <shallow|normal|deep>` - Scan depth (affects crawling)
-- `--timeout <seconds>` - Maximum execution time
-- `--parallel <n>` - Concurrent requests
+- `--timeout <seconds>` - Maximum execution time (default: 120)
+- `--parallel <n>` - Concurrent requests (default: 10)
 - `--verbose` - Detailed logging
-- `--skip-vuln-scan` - Skip vulnerability scanning stage
-
-### Environment Variable Syntax
-
-- `${VAR_NAME}` - Standard shell-style (recommended)
-- `%{VAR_NAME}` - Alternative syntax
+- `--output <path>` - Output file path (default: discovery_results.json)
 
 ### File Paths
 
-- **Docker**: `/input/auth-config.yaml` (inside container)
-- **Local**: `./config/auth.yaml` (relative to working directory)
+- **Docker**: `/input/auth-config.json` (inside container)
+- **Local**: `./config/auth.json` (relative to working directory)
+- **Absolute**: `/absolute/path/to/auth.json`
+
+### Configuration Format
+
+- **Format**: JSON (not YAML)
+- **Encoding**: UTF-8
+- **Syntax**: Standard JSON (no trailing commas, double quotes only)
+- **Validation**: Use `jq` or `node -e` to validate before use
+
+### Development Commands
+
+```bash
+# Development mode (hot reload)
+pnpm dev --url https://example.com --auth-config config/auth.json
+
+# Production build
+pnpm build
+pnpm start -- --url https://example.com --auth-config config/auth.json
+
+# Direct execution
+node dist/cli.js --url https://example.com --auth-config config/auth.json
+```
 
 ---
 
-**Need help?** Open an issue at [GitHub Issues](https://github.com/your-org/surface-discovery/issues)
+**Need help?** Open an issue at the project's GitHub repository

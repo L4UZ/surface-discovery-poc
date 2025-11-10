@@ -11,8 +11,8 @@ docker build -t surface-discovery .
 ```
 
 This builds a multi-stage image that includes:
-- All Go-based security tools (subfinder, httpx, nuclei, etc.)
-- Python runtime and dependencies
+- All Go-based security tools (subfinder, httpx, naabu, katana, dnsx)
+- Node.js 20+ runtime and dependencies
 - Configured non-root user
 - Network capabilities for port scanning
 
@@ -123,7 +123,7 @@ docker run --rm \
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OUTPUT_FILE` | `/output/discovery_results.json` | Default output file path |
-| `PYTHONUNBUFFERED` | `1` | Disable Python output buffering |
+| `NODE_ENV` | `production` | Node.js environment mode |
 
 Example:
 ```bash
@@ -147,7 +147,7 @@ docker run --rm \
 ### Configuration Files (Optional)
 ```bash
 # Mount custom config
--v $(pwd)/custom_config.py:/app/discovery/config.py
+-v $(pwd)/custom_config.ts:/app/src/config.ts
 ```
 
 ## Network Configuration
@@ -252,8 +252,8 @@ $ httpx -l subdomains.txt -json
 ### Custom Entrypoint
 ```bash
 # Override entrypoint to run custom commands
-docker run --rm --entrypoint python surface-discovery \
-  -c "from discovery.core import run_discovery; print('Custom script')"
+docker run --rm --entrypoint node surface-discovery \
+  -e "import('./dist/core.js').then(m => { console.log('Custom script'); })"
 ```
 
 ### Build with Custom Tag
@@ -324,7 +324,7 @@ DOCKER_BUILDKIT=1 docker build -t surface-discovery .
 ### Layer Caching
 The Dockerfile is optimized for layer caching:
 1. Go tools (changes rarely)
-2. Python requirements (changes occasionally)
+2. Node.js dependencies (changes occasionally)
 3. Application code (changes frequently)
 
 ### Multi-Architecture Build
@@ -366,7 +366,7 @@ docker run --rm -v $(pwd)/results:/output \
 Add to `docker-compose.yml`:
 ```yaml
 healthcheck:
-  test: ["CMD", "python", "cli.py", "--check-tools"]
+  test: ["CMD", "node", "dist/cli.js", "--check-tools"]
   interval: 30s
   timeout: 10s
   retries: 3

@@ -78,8 +78,8 @@ done
 # Custom output filename
 -e OUTPUT_FILE=/output/scan_$(date +%Y%m%d).json
 
-# Python settings
--e PYTHONUNBUFFERED=1
+# Node.js settings
+-e NODE_ENV=production
 ```
 
 ## Network Modes

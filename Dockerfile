@@ -1,83 +1,83 @@
-# Multi-stage Dockerfile for Surface Discovery
-# Stage 1: Build Go-based security tools
+# Surface Discovery - Dockerfile
+# Multi-stage build for Node.js/TypeScript implementation
+
+# Stage 1: Build Go tools
 FROM golang:1.24-bookworm AS go-builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    gcc \
+# Install build dependencies for naabu (requires libpcap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     libpcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ProjectDiscovery tools (separate RUN commands for better caching and retry)
-RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-RUN go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
-RUN go install -v github.com/projectdiscovery/katana/cmd/katana@latest
-RUN go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-RUN go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+# Install ProjectDiscovery tools
+RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
+    go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    go install -v github.com/projectdiscovery/katana/cmd/katana@latest && \
+    go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest && \
+    go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
 
-# Stage 2: Runtime image
-FROM python:3.11-slim
+# Stage 2: Runtime
+FROM node:20-slim
 
-# Metadata
-LABEL maintainer="surface-discovery"
-LABEL description="In-depth web attack surface discovery service"
-LABEL version="0.1.0"
-
-# Install runtime dependencies including Playwright browser dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for Playwright and naabu
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     ca-certificates \
     libcap2-bin \
     libpcap0.8 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Go tools from builder stage
+# Copy Go tools from builder
 COPY --from=go-builder /go/bin/* /usr/local/bin/
 
 # Set capabilities for naabu (port scanning)
-RUN setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip /usr/local/bin/naabu
+RUN setcap cap_net_raw,cap_net_admin+eip /usr/local/bin/naabu
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Create non-root user
+RUN useradd -m discovery && \
+    mkdir -p /app /output && \
+    chown -R discovery:discovery /app /output
 
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy dependency files first (for layer caching)
-COPY pyproject.toml .
+# Copy package files
+COPY --chown=discovery:discovery package.json pnpm-lock.yaml ./
 
-# Install Python dependencies using uv
-RUN uv sync --no-dev --frozen
+# Install pnpm and dependencies
+RUN corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    su discovery -c "pnpm install --frozen-lockfile"
 
-# Install Playwright and Chromium browser (Phase 0: Deep URL Discovery)
-# Note: This adds ~300MB to the image size but enables JavaScript execution for SPAs
-RUN uv run playwright install chromium --with-deps
+# Install Playwright browsers
+RUN su discovery -c "pnpm exec playwright install chromium"
 
-# Copy application code
-COPY discovery/ ./discovery/
-COPY cli.py .
+# Copy application source
+COPY --chown=discovery:discovery . .
 
-# Create output directory
-RUN mkdir -p /output && chmod 777 /output
-
-# Copy entrypoint script
-COPY docker-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Use non-root user for security (except for naabu which needs caps)
-RUN useradd -m -u 1000 discovery && \
-    chown -R discovery:discovery /app /output
+# Build TypeScript
+RUN su discovery -c "pnpm run build"
 
 # Switch to non-root user
 USER discovery
 
-# Set entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+# Set output volume
+VOLUME ["/output"]
 
-# Default command (can be overridden)
+# Entry point
+ENTRYPOINT ["node", "dist/cli.js"]
 CMD ["--help"]
