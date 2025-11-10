@@ -3,6 +3,13 @@
 ## Project Type
 Production-ready web attack surface reconnaissance service
 
+## Migration Status
+**✅ COMPLETE** - Python → Node.js migration finished 2025-11-10
+- All Python code removed
+- Node.js is sole implementation
+- All documentation updated to reflect Node.js
+- Build verified, all tools checked, ready for production
+
 ## Technology Stack
 - **Language**: TypeScript (Node.js 20+)
 - **Package Manager**: pnpm
@@ -47,15 +54,14 @@ Production-ready web attack surface reconnaissance service
 - **Volumes**: /output for results persistence
 
 ## CLI Flags
-- `--url`: Target URL or domain (required)
-- `--output`: Output file path (auto-generated if not provided)
-- `--depth`: Discovery depth (shallow|normal|deep)
-- `--timeout`: Max execution time in seconds
-- `--parallel`: Max parallel tasks
+- `--url <url>`: Target URL or domain (required unless --check-tools)
+- `--output <path>`: Output file path (auto-generated if not provided)
+- `--depth <shallow|normal|deep>`: Discovery depth
+- `--timeout <seconds>`: Max execution time in seconds
+- `--parallel <number>`: Max parallel tasks
 - `--verbose`: Enable verbose logging
-- `--check-tools`: Verify tool installation
-- `--auth-mode`: Enable authenticated discovery
-- `--auth-config`: JSON authentication configuration file
+- `--check-tools`: Verify tool installation (URL not required)
+- `--auth-config <path>`: JSON authentication configuration file
 
 ## External Tools (5 tools)
 - **subfinder**: Subdomain enumeration
@@ -67,10 +73,12 @@ Production-ready web attack surface reconnaissance service
 **NOTE**: Nuclei has been removed from the Node.js version.
 
 ## Project Status
-- **Migration**: 100% complete - Node.js is sole implementation
+- **Migration**: ✅ 100% complete - Node.js is sole implementation (2025-11-10)
 - **Build**: ✅ Compiles with 0 errors
-- **CLI**: ✅ All commands working
-- **Tools**: ✅ All 5 external tools detected
+- **CLI**: ✅ All commands working (including --check-tools without URL)
+- **Tools**: ✅ All 5 external tools detected and verified
+- **Documentation**: ✅ All docs updated for Node.js
+- **Authentication**: ✅ JSON config format with complete documentation
 - **Type Safety**: 70% (strict mode temporarily disabled, needs re-enabling incrementally)
 - **Testing**: Unit tests with Vitest (pending implementation)
 
@@ -82,6 +90,9 @@ pnpm dev --url example.com --depth shallow
 # Production
 pnpm build
 pnpm start -- --url example.com --output results.json
+
+# Tool verification
+node dist/cli.js --check-tools
 
 # Code Quality
 pnpm typecheck    # Type checking
@@ -115,3 +126,20 @@ Comprehensive JSON including:
 - **Methods**: Session cookies, JWT tokens, OAuth2 headers, custom headers, basic auth
 - **Flow**: Normal discovery → Authenticated crawling → Combined results
 - **Output**: Authenticated endpoints marked and counted separately
+- **Documentation**: Complete YAML→JSON conversion finished (docs/AUTHENTICATED_SCAN.md)
+
+## Recent Changes (2025-11-10)
+- ✅ Deleted entire Python implementation
+- ✅ Moved Node.js from subdirectory to root
+- ✅ Updated all documentation (README, QUICKSTART, INSTALLATION, DOCKER, AUTHENTICATED_SCAN)
+- ✅ Fixed CLI schema (authConfig uncommented, URL optional for --check-tools)
+- ✅ Verified build and tool check passes
+- ✅ Updated Claude memory for Node.js context
+- ✅ Completed AUTHENTICATED_SCAN.md YAML→JSON conversion (687 lines)
+
+## Known Technical Decisions
+1. **No Environment Variable Substitution**: JSON config requires direct credential values
+2. **Nuclei Removed**: Vulnerability scanning stage removed from Node.js version
+3. **Playwright for Auth**: Browser automation for authenticated discovery
+4. **pnpm Package Manager**: 2-3x faster than npm, efficient disk usage
+5. **Zod Validation**: Runtime validation with compile-time type inference

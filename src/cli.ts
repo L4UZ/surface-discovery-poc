@@ -201,9 +201,9 @@ async function main(): Promise<void> {
       const safeDomain = sanitizeFilename(domain);
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
       // Create results directory if it doesn't exist
-      mkdirSync(resolve('output'), { recursive: true });
+      mkdirSync('output', { recursive: true });
 
-      outputPath = resolve(`output/discovery_${safeDomain}_${timestamp}.json`);
+      outputPath = resolve('output', `discovery_${safeDomain}_${timestamp}.json`);
     }
 
     // Write results to file

@@ -4,6 +4,12 @@
 # Stage 1: Build Go tools
 FROM golang:1.24-bookworm AS go-builder
 
+# Install build dependencies for naabu (requires libpcap)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install ProjectDiscovery tools
 RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest && \
     go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest && \
@@ -19,6 +25,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates \
     libcap2-bin \
+    libpcap0.8 \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -41,7 +48,7 @@ COPY --from=go-builder /go/bin/* /usr/local/bin/
 RUN setcap cap_net_raw,cap_net_admin+eip /usr/local/bin/naabu
 
 # Create non-root user
-RUN useradd -m -u 1000 discovery && \
+RUN useradd -m discovery && \
     mkdir -p /app /output && \
     chown -R discovery:discovery /app /output
 
